@@ -1,0 +1,17 @@
+temp/
+temp/*
+
+# Ignore compiled files
+*.o
+*.so
+*.pyc
+*.swp
+
+# ROS-specific files to ignore
+log/
+
+# Ignore workspace-level build/devel/install if added by mistake
+../build/
+../devel/
+../install/
+

@@ -1,0 +1,60 @@
+<launch>
+    <!-- Set YOLO_VERBOSE to False -->
+    <env name="YOLO_VERBOSE" value="False" />
+    
+    <!-- Run the Python script that calls chemist_eye_warning.bash (one) -->
+    <node name="speech_service_one_launcher" pkg="chemist_eye" type="launch_bash_remote_speech_service.py" output="screen"/>
+    
+    <!-- Run the Python script that calls chemist_eye_warning.bash (two) -->
+    <node name="speech_service_two_launcher" pkg="chemist_eye" type="launch_bash_remote_speech_service_two.py" output="screen"/>
+
+    <!-- Run the Python script that calls chemist_eye_warning.bash (three) -->
+    <node name="speech_service_three_launcher" pkg="chemist_eye" type="launch_bash_remote_speech_service_three.py" output="screen"/>
+    
+    <!-- Optional: Add a short delay to allow the services to fully initialise -->
+    <param name="service_call_delay" value="5" />
+
+    <!-- Launch the RealSense node -->
+    <node name="server_node" pkg="chemist_eye" type="chemist_eye_server.py" output="screen"/>
+   
+    <!-- Launch the tf calibrator for ChemistEye 1 node -->
+    <node name="cameraone_tf_broadcaster" pkg="chemist_eye" type="cameraone_calibrator_tf.py" output="screen"/>
+
+    <!-- Launch the tf calibrator for ChemistEye 2 node -->
+    <node name="cameratwo_tf_broadcaster" pkg="chemist_eye" type="cameratwo_calibrator_tf.py" output="screen"/>
+
+    <!-- Launch the tf calibrator for ChemistEye 3 node -->
+    <node name="camerathree_tf_broadcaster" pkg="chemist_eye" type="camerathree_calibrator_tf.py" output="screen"/>
+    
+    <!-- Launch the detector node (camera one) -->
+    <node name="detector_one_node" pkg="chemist_eye" type="chemist_eye_detector.py" output="screen"/>
+    
+    <!-- Launch the detector node (camera two) -->
+    <node name="detector_two_node" pkg="chemist_eye" type="chemist_eye_detector_two.py" output="screen"/>
+
+    <!-- Launch the detector node (camera three) -->
+    <node name="detector_three_node" pkg="chemist_eye" type="chemist_eye_detector_three.py" output="screen"/>
+
+    <!-- Launch RViz -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find chemist_eye)/config/chemist_eye.rviz" output="screen"/>
+    
+    <!-- Publish static transform from map to world -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_world_transform" args="0 0 0 -1.5708 0 0 map world" />
+
+    <!-- Run the Python script that calls chemist_eye_streamer.bash (one) -->
+    <node name="remote_streamer_one_launcher" pkg="chemist_eye" type="launch_remote_streamer_one.py" output="screen"/>
+    
+    <!-- Run the Python script that calls chemist_eye_streamer.bash  (two) -->
+    <node name="remote_streamer_two_launcher" pkg="chemist_eye" type="launch_remote_streamer_two.py" output="screen"/>
+
+    <!-- Run the Python script that calls chemist_eye_streamer.bash  (two) -->
+    <node name="remote_streamer_three_launcher" pkg="chemist_eye" type="launch_remote_streamer_three.py" output="screen"/>
+
+    <!-- Load the map using the map_server -->
+    <node pkg="map_server" type="map_server" name="map_server" args="$(find chemist_eye)/maps/ACL_map.yaml"/>
+
+    <!-- Launch llm node -->
+    <node name="llm_classificator_node" pkg="chemist_eye" type="llm.py" output="screen"/>
+
+</launch>
+

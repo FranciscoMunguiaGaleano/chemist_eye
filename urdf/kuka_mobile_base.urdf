@@ -1,0 +1,80 @@
+<?xml version="1.0"?>
+<robot name="kuka_mobile_base">
+
+    <!-- Placa inferior -->
+    <link name="base_plate_1">
+        <visual>
+            <geometry>
+                <box size="1.10 0.63 0.09"/>
+            </geometry>
+            <material name="orange">
+                <color rgba="1.0 0.3 0.0 1.0"/>
+            </material>
+        </visual>
+    </link>
+
+    <!-- Placa superior -->
+    <link name="base_plate_2">
+        <visual>
+            <geometry>
+                <box size="1.00 0.53 0.05"/>
+            </geometry>
+            <material name="orange">
+                <color rgba="1.0 0.3 0.0 1.0"/>
+            </material>
+        </visual>
+    </link>
+    
+    <joint name="base_plate_2_joint" type="fixed">
+        <parent link="base_plate_1"/>
+        <child link="base_plate_2"/>
+        <origin xyz="0 0 0.055"/>
+    </joint>
+
+    <!-- Bloque principal -->
+    <link name="base_block">
+        <visual>
+            <geometry>
+                <box size="1.10 0.63 0.53"/>
+            </geometry>
+            <material name="gray">
+                <color rgba="0.5 0.5 0.5 1.0"/>
+            </material>
+        </visual>
+    </link>
+    
+    <joint name="base_block_joint" type="fixed">
+        <parent link="base_plate_2"/>
+        <child link="base_block"/>
+        <origin xyz="0 0 0.29"/>
+    </joint>
+
+    <!-- Cilindro superior -->
+    <link name="top_cylinder">
+        <visual>
+            <geometry>
+                <cylinder radius="0.12" length="0.26"/>
+            </geometry>
+            <material name="gray">
+                <color rgba="0.5 0.5 0.5 1.0"/>
+            </material>
+        </visual>
+    </link>
+    
+    <joint name="top_cylinder_joint" type="fixed">
+        <parent link="base_block"/>
+        <child link="top_cylinder"/>
+        <origin xyz="0.37 -0.19 0.39"/>
+    </joint>
+
+
+
+    <!-- TF del cilindro superior -->
+    <link name="kuka_mobile_base_top"/>
+    <joint name="kuka_mobile_base_top_joint" type="fixed">
+        <parent link="top_cylinder"/>
+        <child link="kuka_mobile_base_top"/>
+        <origin xyz="0 0.0 0.13"/>
+    </joint>
+
+</robot>

@@ -1,0 +1,31 @@
+<launch>
+
+    <!-- Launch server node -->
+    <node name="server_node" pkg="chemist_eye" type="chemist_eye_server.py" output="screen"/>
+
+    <!-- Launch the tf calibrator for IR ChemistEye 1 node -->
+    <node name="ircameraone_tf_broadcaster" pkg="chemist_eye" type="camera_ir_one_calibrator_tf.py" output="screen"/>
+
+    <!-- Launch the tf calibrator for IR ChemistEye 2 node -->
+    <node name="ircameratwo_tf_broadcaster" pkg="chemist_eye" type="camera_ir_two_calibrator_tf.py" output="screen"/>
+
+    <!-- Launch fire detection node -->
+    <node name="fire_detection_node" pkg="chemist_eye" type="fire_detection.py" output="screen"/>
+
+    <!-- Launch RViz -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find chemist_eye)/config/chemist_eye_ir.rviz" output="screen"/>
+    
+    <!-- Publish static transform from map to world -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_world_transform" args="0 0 0 -1.5708 0 0 map world" />
+
+    <!-- Run the Python script that calls chemist_eye_streamer.bash (one) -->
+    <node name="remote_streamer_ir_one_launcher" pkg="chemist_eye" type="launch_remote_streamer_ir_one.py" output="screen"/>
+
+    <!-- Run the Python script that calls chemist_eye_ir_streamer.bash (two) -->
+    <node name="remote_streamer_ir_two_launcher" pkg="chemist_eye" type="launch_remote_streamer_ir_two.py" output="screen"/>
+
+    <!-- Load the map using the map_server -->
+    <node pkg="map_server" type="map_server" name="map_server" args="$(find chemist_eye)/maps/ACL_map.yaml"/>
+
+
+</launch>

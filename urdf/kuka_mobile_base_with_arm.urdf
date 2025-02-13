@@ -1,0 +1,263 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="kuka_mobile_base">
+
+    <xacro:property name="robot_namespace" value="$(arg robot_namespace)"/>
+    <!-- MOBILE BASE -->
+    <link name="${robot_namespace}_base_plate_1">
+        <visual>
+            <geometry>
+                <box size="1.10 0.63 0.09"/>
+            </geometry>
+            <material name="orange">
+                <color rgba="1.0 0.3 0.0 1.0"/>
+            </material>
+        </visual>
+    </link>
+
+    <link name="${robot_namespace}_base_plate_2">
+        <visual>
+            <geometry>
+                <box size="1.00 0.53 0.05"/>
+            </geometry>
+            <material name="orange">
+                <color rgba="1.0 0.3 0.0 1.0"/>
+            </material>
+        </visual>
+    </link>
+
+    <joint name="${robot_namespace}_base_plate_2_joint" type="fixed">
+        <parent link="${robot_namespace}_base_plate_1"/>
+        <child link="${robot_namespace}_base_plate_2"/>
+        <origin xyz="0 0 0.055"/>
+    </joint>
+
+    <link name="${robot_namespace}_base_block">
+        <visual>
+            <geometry>
+                <box size="1.10 0.63 0.53"/>
+            </geometry>
+            <material name="gray">
+                <color rgba="0.5 0.5 0.5 1.0"/>
+            </material>
+        </visual>
+    </link>
+
+    <joint name="${robot_namespace}_base_block_joint" type="fixed">
+        <parent link="${robot_namespace}_base_plate_2"/>
+        <child link="${robot_namespace}_base_block"/>
+        <origin xyz="0 0 0.29"/>
+    </joint>
+
+    <link name="${robot_namespace}_top_cylinder">
+        <visual>
+            <geometry>
+                <cylinder radius="0.12" length="0.26"/>
+            </geometry>
+            <material name="gray">
+                <color rgba="0.5 0.5 0.5 1.0"/>
+            </material>
+        </visual>
+    </link>
+
+    <joint name="${robot_namespace}_top_cylinder_joint" type="fixed">
+        <parent link="${robot_namespace}_base_block"/>
+        <child link="${robot_namespace}_top_cylinder"/>
+        <origin xyz="0.37 -0.19 0.39"/>
+    </joint>
+
+    <link name="${robot_namespace}_kuka_mobile_base_link"/>
+    <joint name="${robot_namespace}_kuka_mobile_base_joint" type="fixed">
+        <parent link="${robot_namespace}_base_plate_1"/>
+        <child link="${robot_namespace}_kuka_mobile_base_link"/>
+        <origin xyz="0 0 -0.075"/>
+    </joint>
+
+    <link name="${robot_namespace}_kuka_mobile_base_top"/>
+    <joint name="${robot_namespace}_kuka_mobile_base_top_joint" type="fixed">
+        <parent link="${robot_namespace}_top_cylinder"/>
+        <child link="${robot_namespace}_kuka_mobile_base_top"/>
+        <origin xyz="0 0.0 0.13"/>
+    </joint>
+
+    <!-- KUKA ROBOT ATTACHED TO MOBILE BASE -->
+    <link name="${robot_namespace}_base_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/visual/base_link.dae"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <joint name="${robot_namespace}_base_to_mobile_base_top" type="fixed">
+        <parent link="${robot_namespace}_kuka_mobile_base_top"/>
+        <child link="${robot_namespace}_base_link"/>
+        <origin xyz="0 0 0.13"/>  <!-- Adjust height if necessary -->
+    </joint>
+
+    <link name="${robot_namespace}_link_1">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/visual/link_1.dae"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/collision/link_1.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="${robot_namespace}_link_2">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/visual/link_2.dae"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/collision/link_2.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="${robot_namespace}_link_3">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/visual/link_3.dae"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/collision/link_3.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="${robot_namespace}_link_4">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/visual/link_4.dae"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/collision/link_4.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="${robot_namespace}_link_5">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/visual/link_5.dae"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/collision/link_5.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="${robot_namespace}_link_6">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/visual/link_6.dae"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/collision/link_6.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="${robot_namespace}_link_7">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/visual/link_7.dae"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="package://kuka_lbr_iiwa_support/meshes/lbr_iiwa_14_r820/collision/link_7.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="${robot_namespace}_tool0"/>
+  <!-- end of link list -->
+  <!-- joint list -->
+  <joint name="${robot_namespace}_joint_a1" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="${robot_namespace}_base_link"/>
+    <child link="${robot_namespace}_link_1"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="0" lower="-2.9668" upper="2.9668" velocity="1.4834"/>
+  </joint>
+  <joint name="${robot_namespace}_joint_a2" type="revolute">
+    <origin rpy="0 0 0" xyz="-0.00043624 0 0.36"/>
+    <parent link="${robot_namespace}_link_1"/>
+    <child link="${robot_namespace}_link_2"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="0" lower="-2.0942" upper="2.0942" velocity="1.4834"/>
+  </joint>
+  <joint name="${robot_namespace}_joint_a3" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="${robot_namespace}_link_2"/>
+    <child link="${robot_namespace}_link_3"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="0" lower="-2.9668" upper="2.9668" velocity="1.7452"/>
+  </joint>
+  <joint name="${robot_namespace}_joint_a4" type="revolute">
+    <origin rpy="0 0 0" xyz="0.00043624 0 0.42"/>
+    <parent link="${robot_namespace}_link_3"/>
+    <child link="${robot_namespace}_link_4"/>
+    <axis xyz="0 -1 0"/>
+    <limit effort="0" lower="-2.0942" upper="2.0942" velocity="1.3089"/>
+  </joint>
+  <joint name="${robot_namespace}_joint_a5" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="${robot_namespace}_link_4"/>
+    <child link="${robot_namespace}_link_5"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="0" lower="-2.9668" upper="2.9668" velocity="2.2688"/>
+  </joint>
+  <joint name="${robot_namespace}_joint_a6" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 0.4"/>
+    <parent link="${robot_namespace}_link_5"/>
+    <child link="${robot_namespace}_link_6"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="0" lower="-2.0942" upper="2.0942" velocity="2.356"/>
+  </joint>
+  <joint name="${robot_namespace}_joint_a7" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="${robot_namespace}_link_6"/>
+    <child link="${robot_namespace}_link_7"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="0" lower="-3.0541" upper="3.0541" velocity="2.356"/>
+  </joint>
+  <joint name="${robot_namespace}_joint_a7-tool0" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0.126"/>
+    <parent link="${robot_namespace}_link_7"/>
+    <child link="${robot_namespace}_tool0"/>
+    <axis xyz="0 0 0"/>
+  </joint>
+  <!-- end of joint list -->
+  <!-- ROS base_link to KUKA $ROBROOT coordinate system transform -->
+  <link name="${robot_namespace}_base"/>
+  <joint name="${robot_namespace}_base_link-base" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <parent link="${robot_namespace}_base_link"/>
+    <child link="${robot_namespace}_base"/>
+  </joint>
+  
+</robot>

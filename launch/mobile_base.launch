@@ -1,0 +1,6 @@
+<launch>
+    <param name="robot_description" command="$(find xacro)/xacro $(find chemist_eye)/urdf/kuka_mobile_base.urdf"/>
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
+    <node name="speech_service_two_launcher" pkg="chemist_eye" type="kuka_mobile_robot_state_publisher.py" output="screen"/>
+    <node name="rviz" pkg="rviz" type="rviz"/>
+</launch>
