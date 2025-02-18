@@ -66,134 +66,91 @@ COLOR_MAP = {
 PATH_COLOR = (1.0, 0.0, 1.0, 1.0)  # Pink
 
 
-def find_shortest_path(start, goal):
-    queue = [(0, start, [])]
-    visited = set()
-    while queue:
-        cost, node, path = heapq.heappop(queue)
-        if node in visited:
-            continue
-        path = path + [node]
-        if node == goal:
-            return path
-        visited.add(node)
-        for neighbor in NODES_RELATIONSHIPS.get(node, {}):
-            heapq.heappush(queue, (cost + 1, neighbor, path))
-    return []
+class MarkerManager:
+    def __init__(self):
+        rospy.init_node('node_marker_publisher', anonymous=True)
+        self.pub = rospy.Publisher('visualization_marker_array', MarkerArray, queue_size=10)
+        self.rate = rospy.Rate(1)
+        self.node_states = {node: 1 for node in NODES_POSITIONS.keys()}  # Default state
 
+    @staticmethod
+    def calculate_distances():
+        distances = {}
+        for node, neighbors in NODES_RELATIONSHIPS.items():
+            for neighbor in neighbors:
+                dist = math.sqrt((NODES_POSITIONS[node][0] - NODES_POSITIONS[neighbor][0]) ** 2 +
+                                 (NODES_POSITIONS[node][1] - NODES_POSITIONS[neighbor][1]) ** 2)
+                distances[(node, neighbor)] = dist
+        return distances
 
-def draw_path(path, marker_array):
-    path_marker = Marker()
-    path_marker.header.frame_id = "world"
-    path_marker.ns = "path"
-    path_marker.id = 2000
-    path_marker.type = Marker.LINE_STRIP
-    path_marker.action = Marker.ADD
-    path_marker.scale.x = 0.06
-    path_marker.color.r, path_marker.color.g, path_marker.color.b, path_marker.color.a = PATH_COLOR
-    for node in path:
-        point = Point()
-        point.x, point.y = NODES_POSITIONS[node]
-        point.z = 0.1
-        path_marker.points.append(point)
-    marker_array.markers.append(path_marker)
-
-def calculate_distances():
-    distances = {}
-    for node, neighbors in NODES_RELATIONSHIPS.items():
-        for neighbor in neighbors:
-            dist = math.sqrt((NODES_POSITIONS[node][0] - NODES_POSITIONS[neighbor][0]) ** 2 +
-                             (NODES_POSITIONS[node][1] - NODES_POSITIONS[neighbor][1]) ** 2)
-            distances[(node, neighbor)] = dist
-    return distances
-
-def create_markers(node_states):
-    marker_array = MarkerArray()
-    for node_id, position in NODES_POSITIONS.items():
-        marker = Marker()
-        marker.header.frame_id = "world"
-        marker.header.stamp = rospy.Time.now()
-        marker.ns = "nodes"
-        marker.id = node_id
-        marker.type = Marker.CYLINDER
-        marker.action = Marker.ADD
-        marker.pose.position.x = position[0]
-        marker.pose.position.y = position[1]
-        marker.pose.position.z = 0.1
-        marker.scale.x = 0.3
-        marker.scale.y = 0.3
-        marker.scale.z = 0.001
-        
-        color = COLOR_MAP[node_states[node_id]]
-        marker.color.r = color[0]
-        marker.color.g = color[1]
-        marker.color.b = color[2]
-        marker.color.a = color[3]
-        
-        marker_array.markers.append(marker)
-    
-    line_marker = Marker()
-    line_marker.header.frame_id = "world"
-    line_marker.header.stamp = rospy.Time.now()
-    line_marker.ns = "lines"
-    line_marker.id = 1000
-    line_marker.type = Marker.LINE_LIST
-    line_marker.action = Marker.ADD
-    line_marker.scale.x = 0.01
-    line_marker.color.r = 0.0
-    line_marker.color.g = 0.0
-    line_marker.color.b = 0.0
-    line_marker.color.a = 0.8
-    
-    for node, neighbors in NODES_RELATIONSHIPS.items():
-        for neighbor in neighbors:
-            point1 = Point()
-            point1.x = NODES_POSITIONS[node][0]
-            point1.y = NODES_POSITIONS[node][1]
-            point1.z = 0.1
-            
-            point2 = Point()
-            point2.x = NODES_POSITIONS[neighbor][0]
-            point2.y = NODES_POSITIONS[neighbor][1]
-            point2.z = 0.1
-            
-            line_marker.points.append(point1)
-            line_marker.points.append(point2)
-    
-    marker_array.markers.append(line_marker)
-    
-    return marker_array
-
-def marker_publisher(start_node, goal_node, velocity):
-    rospy.init_node('node_marker_publisher', anonymous=True)
-    pub = rospy.Publisher('visualization_marker_array', MarkerArray, queue_size=10)
-    rate = rospy.Rate(1)  
-    node_states = {node: 1 for node in NODES_POSITIONS.keys()}  # Assign random states
-    path = find_shortest_path(24, 36)
-    rospy.loginfo(path)
-    
-    while not rospy.is_shutdown():
+    def create_markers(self):
         marker_array = MarkerArray()
-        markers = create_markers(node_states)
-        
-        #if path and len(path) > 0:  # Ensure path has at least two points
-        #    draw_path(path, marker_array)
-        
-        for marker in markers.markers:
-            marker.pose.orientation.w = 1.0  # Ensure quaternion is initialized
+        for node_id, position in NODES_POSITIONS.items():
+            marker = Marker()
+            marker.header.frame_id = "world"
+            marker.header.stamp = rospy.Time.now()
+            marker.ns = "nodes"
+            marker.id = node_id
+            marker.type = Marker.CYLINDER
+            marker.action = Marker.ADD
+            marker.pose.position.x = position[0]
+            marker.pose.position.y = position[1]
+            marker.pose.position.z = 0.1
+            marker.scale.x = 0.3
+            marker.scale.y = 0.3
+            marker.scale.z = 0.001
+            
+            color = COLOR_MAP[self.node_states[node_id]]
+            marker.color.r = color[0]
+            marker.color.g = color[1]
+            marker.color.b = color[2]
+            marker.color.a = color[3]
+            
             marker_array.markers.append(marker)
         
-        pub.publish(marker_array)
-        rate.sleep()
+        line_marker = Marker()
+        line_marker.header.frame_id = "world"
+        line_marker.header.stamp = rospy.Time.now()
+        line_marker.ns = "lines"
+        line_marker.id = 1000
+        line_marker.type = Marker.LINE_LIST
+        line_marker.action = Marker.ADD
+        line_marker.scale.x = 0.01
+        line_marker.color.r = 0.0
+        line_marker.color.g = 0.0
+        line_marker.color.b = 0.0
+        line_marker.color.a = 0.8
+        
+        for node, neighbors in NODES_RELATIONSHIPS.items():
+            for neighbor in neighbors:
+                point1 = Point()
+                point1.x = NODES_POSITIONS[node][0]
+                point1.y = NODES_POSITIONS[node][1]
+                point1.z = 0.1
+                
+                point2 = Point()
+                point2.x = NODES_POSITIONS[neighbor][0]
+                point2.y = NODES_POSITIONS[neighbor][1]
+                point2.z = 0.1
+                
+                line_marker.points.append(point1)
+                line_marker.points.append(point2)
+        
+        marker_array.markers.append(line_marker)
+        return marker_array
+
+    def publish_markers(self):
+        while not rospy.is_shutdown():
+            marker_array = self.create_markers()
+            for marker in marker_array.markers:
+                marker.pose.orientation.w = 1.0 
+            self.pub.publish(marker_array)
+            self.rate.sleep()
 
 if __name__ == '__main__':
     try:
-        # Start and goal nodes, and velocity values can now be set via launch file
-        start_node = rospy.get_param('~start_node', 1)
-        goal_node = rospy.get_param('~goal_node', 36)
-        velocity = rospy.get_param('~velocity', 0.2)
-        
-        marker_publisher(start_node, goal_node, velocity)
+        manager = MarkerManager()
+        manager.publish_markers()
     except rospy.ROSInterruptException:
         pass
 

@@ -85,11 +85,6 @@
     <!-- Robot 1 -->
     
     <!-- Define parameters for initial position and orientation under robot1 namespace -->
-    <arg name="x_init" default="-2.5"/>
-    <arg name="y_init" default="2.5"/>
-    <arg name="yaw_init" default="0.0"/>
-    <arg name="robot1_start_node" default="24"/>
-    <arg name="robot1_goal_node" default="1"/>
     <arg name="robot1_namespace" default="robot1"/>
 
     <!-- Launch robot1 within its namespace -->
@@ -103,11 +98,9 @@
 
         <!-- Launch the mobile base broadcaster with customized parameters -->
         <node name="mobile_base_tf_broadcaster" pkg="chemist_eye" type="kuka_mobile_robot_state_publisher.py" output="screen">
-            <param name="x_init" value="$(arg x_init)"/>
-            <param name="y_init" value="$(arg y_init)"/>
-            <param name="yaw_init" value="$(arg yaw_init)"/>
-            <param name="start_node" value="$(arg robot1_start_node)"/>
-            <param name="goal_node" value="$(arg robot1_goal_node)"/>
+            <param name="start_node" value="24"/>
+            <param name="goal_node" value="1"/>
+            <param name="automatic" value="True"/>
             <param name="ns_name" value="robot1"/>
         </node>
     </group>
@@ -122,9 +115,9 @@
         </node>
 
         <node name="mobile_base_tf_broadcaster" pkg="chemist_eye" type="kuka_mobile_robot_state_publisher.py" output="screen">
-            <param name="x_init" value="-12.0"/>
-            <param name="y_init" value="8.0"/>
-            <param name="yaw_init" value="0.0"/>
+            <param name="start_node" value="36"/>
+            <param name="goal_node" value="32"/>
+            <param name="automatic" value="True"/>
             <param name="ns_name" value="robot2"/>
         </node>
     </group>
@@ -140,9 +133,9 @@
         </node>
 
         <node name="mobile_base_tf_broadcaster" pkg="chemist_eye" type="kuka_mobile_robot_state_publisher.py" output="screen">
-            <param name="x_init" value="-1.2"/>
-            <param name="y_init" value="12.0"/>
-            <param name="yaw_init" value="0.0"/>
+            <param name="start_node" value="4"/>
+            <param name="goal_node" value="3"/>
+            <param name="automatic" value="True"/>
             <param name="ns_name" value="robot3"/>
         </node>
     </group>

@@ -96,6 +96,22 @@ Visualization Manager:
         robot1path: true
       Queue Size: 100
       Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /robot2/robot2_visualization_path_marker_array
+      Name: Robot_Path_2
+      Namespaces:
+        robot2path: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /robot3/robot3_visualization_path_marker_array
+      Name: Robot_Path_3
+      Namespaces:
+        robot3path: true
+      Queue Size: 100
+      Value: true
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: /visualization_marker_two
