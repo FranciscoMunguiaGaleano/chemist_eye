@@ -88,6 +88,8 @@
     <arg name="x_init" default="-2.5"/>
     <arg name="y_init" default="2.5"/>
     <arg name="yaw_init" default="0.0"/>
+    <arg name="robot1_start_node" default="24"/>
+    <arg name="robot1_goal_node" default="1"/>
     <arg name="robot1_namespace" default="robot1"/>
 
     <!-- Launch robot1 within its namespace -->
@@ -104,6 +106,8 @@
             <param name="x_init" value="$(arg x_init)"/>
             <param name="y_init" value="$(arg y_init)"/>
             <param name="yaw_init" value="$(arg yaw_init)"/>
+            <param name="start_node" value="$(arg robot1_start_node)"/>
+            <param name="goal_node" value="$(arg robot1_goal_node)"/>
             <param name="ns_name" value="robot1"/>
         </node>
     </group>
@@ -142,9 +146,7 @@
             <param name="ns_name" value="robot3"/>
         </node>
     </group>
-
-
-
+    <!-- Navigation grhap visualizer-->
+    <node name="navigation_graph_node" pkg="chemist_eye" type="navigation_graph.py" output="screen"/>
     
-
 </launch>
