@@ -35,8 +35,8 @@ def broadcast_transforms():
                          ns + "_base_plate_2")  # Parent frame (base plate 2)
 
         # Broadcast transform for top_cylinder
-        br.sendTransform((0.37, -0.19, 0.39), # Origin of top_cylinder relative to base_block
-                         tf.transformations.quaternion_from_euler(0, 0, 0),
+        br.sendTransform((-0.37, 0.19, 0.39), # Origin of top_cylinder relative to base_block
+                         tf.transformations.quaternion_from_euler(0, 0, math.pi),
                          rospy.Time.now(),
                          ns + "_top_cylinder",  # Child frame (top cylinder)
                          ns + "_base_block")    # Parent frame (base block)

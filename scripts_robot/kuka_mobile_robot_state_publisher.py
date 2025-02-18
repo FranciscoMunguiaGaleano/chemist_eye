@@ -138,9 +138,9 @@ def move_base():
             for i in range(0,len(path)-1):
                 node_i = path[i]
                 node_i_ = path[i+1]
-                rospy.loginfo(f'i: X, Y {node_i}: {NODES_POSITIONS[node_i][0]}, {NODES_POSITIONS[node_i][1]}')
-                rospy.loginfo(f'i + 1: X, Y {node_i_}: {NODES_POSITIONS[node_i_][0]}, {NODES_POSITIONS[node_i_][1]}')
-                rospy.loginfo(f'Angular position Initial: {NODES_RELATIONSHIPS[node_i][node_i_][0]} Final: {NODES_RELATIONSHIPS[node_i][node_i_][1]}')
+                #rospy.loginfo(f'i: X, Y {node_i}: {NODES_POSITIONS[node_i][0]}, {NODES_POSITIONS[node_i][1]}')
+                #rospy.loginfo(f'i + 1: X, Y {node_i_}: {NODES_POSITIONS[node_i_][0]}, {NODES_POSITIONS[node_i_][1]}')
+                #rospy.loginfo(f'Angular position Initial: {NODES_RELATIONSHIPS[node_i][node_i_][0]} Final: {NODES_RELATIONSHIPS[node_i][node_i_][1]}')
                 x_dist = (NODES_POSITIONS[node_i_][0] - NODES_POSITIONS[node_i][0])/100
                 y_dist = (NODES_POSITIONS[node_i_][1] - NODES_POSITIONS[node_i][1])/100
                 yaw_dist_at_node_i = (NODES_RELATIONSHIPS[node_i][node_i_][0] - math.degrees(current_yaw))/100
@@ -183,13 +183,60 @@ def move_base():
                                     rospy.Time.now(),
                                     ns + "_kuka_mobile_base_link",
                                     "world")
+            try:
+                for i in range(len(path) - 1, 0, -1):
+                    node_i = path[i]
+                    node_i_ = path[i-1]
+                    x_dist = (NODES_POSITIONS[node_i_][0] - NODES_POSITIONS[node_i][0])/100
+                    y_dist = (NODES_POSITIONS[node_i_][1] - NODES_POSITIONS[node_i][1])/100
+                    yaw_dist_at_node_i = (NODES_RELATIONSHIPS[node_i][node_i_][0] - math.degrees(current_yaw))/100
+                    if yaw_dist_at_node_i != 0: 
+                        x = NODES_POSITIONS[node_i][0] 
+                        y = NODES_POSITIONS[node_i][1]
+                        for i in range(0,101):
+                            yaw_i = current_yaw + math.radians(yaw_dist_at_node_i)*i
+                            br.sendTransform((x, y, 0),
+                                            tf.transformations.quaternion_from_euler(0, 0, yaw_i - math.radians(90)),
+                                            rospy.Time.now(),
+                                            ns + "_kuka_mobile_base_link",
+                                            "world")
+                            time.sleep(0.01)
+                        current_yaw = math.radians(NODES_RELATIONSHIPS[node_i][node_i_][0])
+                    for i in range(0,101):
+                        x = NODES_POSITIONS[node_i][0] + x_dist*i
+                        y = NODES_POSITIONS[node_i][1] + y_dist*i
+                        br.sendTransform((x, y, 0),
+                                        tf.transformations.quaternion_from_euler(0, 0, current_yaw - math.radians(90)),
+                                        rospy.Time.now(),
+                                        ns + "_kuka_mobile_base_link",
+                                        "world")
+                        time.sleep(0.01)
+                    yaw_dist_at_node_i_ = (NODES_RELATIONSHIPS[node_i][node_i_][1] - math.degrees(current_yaw))/100
+                    if yaw_dist_at_node_i_ != 0: 
+                        x = NODES_POSITIONS[node_i_][0] 
+                        y = NODES_POSITIONS[node_i_][1]
+                        for i in range(0,101):
+                            yaw_i = current_yaw + math.radians(yaw_dist_at_node_i_)*i
+                            br.sendTransform((x, y, 0),
+                                            tf.transformations.quaternion_from_euler(0, 0, yaw_i - math.radians(90)),
+                                            rospy.Time.now(),
+                                            ns + "_kuka_mobile_base_link",
+                                            "world")
+                            time.sleep(0.01)
+                        current_yaw = math.radians(NODES_RELATIONSHIPS[node_i][node_i_][1]) 
+                    br.sendTransform((x, y, 0),
+                                        tf.transformations.quaternion_from_euler(0, 0, current_yaw - math.radians(90) ),
+                                        rospy.Time.now(),
+                                        ns + "_kuka_mobile_base_link",
+                                        "world")
+            except Exception as e:
+                rospy.loginfo(f'[Error]{e}')
         else:
             x = x_init + 1.0 * math.cos(t)
             y = y_init + 1.0 * math.sin(t)
             yaw = yaw_init + t
             x = x_init
             y = y_init
-
             br.sendTransform((x, y, 0),
                             tf.transformations.quaternion_from_euler(0, 0, yaw - math.radians(90)),
                             rospy.Time.now(),
