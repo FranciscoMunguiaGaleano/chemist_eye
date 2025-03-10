@@ -6,6 +6,7 @@ import heapq
 from visualization_msgs.msg import MarkerArray, Marker
 from geometry_msgs.msg import Point
 import time
+from std_msgs.msg import Float32MultiArray, String
 
 
 NODES_POSITIONS = {
@@ -70,10 +71,23 @@ class RobotNavigator:
     def __init__(self):
         rospy.init_node('mobile_base_tf_broadcaster')
         self.ns = rospy.get_param('~ns_name', "robot1")
+        self.warning_colour_one_sub = rospy.Subscriber('/cameraone/warning_color_topic', String, self.colour_callback)
         self.path_pub = rospy.Publisher(self.ns + '_visualization_path_marker_array', MarkerArray, queue_size=10)
+        
+        rospy.loginfo(F"Node inisialied")
         self.br = tf.TransformBroadcaster()
         self.rate = rospy.Rate(10)
         self.current_yaw = math.radians(90)
+        self.markers_colours_one = 'gray'
+        self.emergency = False
+    
+    def colour_callback(self, msg):
+        self.markers_colours_one = msg.data
+        #rospy.loginfo(F"Colour changed to {msg}")
+        if self.markers_colours_one != 'gray':
+            self.emergency = True
+        else:
+            self.emergency = False
 
     def find_shortest_path(self, start, goal):
         queue = [(0, start, [])]
@@ -112,47 +126,44 @@ class RobotNavigator:
     def navigate_robot(self, start_node, goal_node):
         return
 
-    def move_base(self):
-        start_node = rospy.get_param('~start_node', 24)
-        goal_node = rospy.get_param('~goal_node', 36)
-        automatic_routine = rospy.get_param('~automatic', False)
-
-        path = self.find_shortest_path(start_node, goal_node)
-        marker_array = MarkerArray()
-        self.draw_path(path, marker_array)
-        self.path_pub.publish(marker_array)
-
-        while not rospy.is_shutdown():
-            marker_array = MarkerArray()
-            if len(path) > 0 and automatic_routine:
-                self.draw_path(path, marker_array)
-                self.path_pub.publish(marker_array)
-                self.follow_path(path)
-            else:
-                x = NODES_POSITIONS[start_node][0]
-                y = NODES_POSITIONS[start_node][1]
-                yaw = math.radians(90)
-                self.br.sendTransform((x, y, 0),
-                                     tf.transformations.quaternion_from_euler(0, 0, yaw),
-                                     rospy.Time.now(),
-                                     self.ns + "_kuka_mobile_base_link",
-                                     "world")
-            self.rate.sleep()
-
-    def follow_path(self, path):
+    def follow_path(self, path, v_max):
         try:
             for i in range(0, len(path) - 1):
-                self.move_to_node(path[i], path[i + 1])
+                self.move_to_node(path[i], path[i + 1], v_max)
+                #rospy.loginfo(F"Colour changed to {self.emergency}, {self.markers_colours_one}")
+                while self.emergency:
+                    #rospy.loginfo('Emergency detecte idleing robots')
+                    self.idle(path[i + 1])
+                    # if new path excute new path and idle there again ...
+                    
             for i in range(len(path) - 1, 0, -1):
-                self.move_to_node(path[i], path[i - 1])
+                self.move_to_node(path[i], path[i - 1], v_max)
+                while self.emergency:
+                    #rospy.loginfo('Emergency detecte idleing robots')
+                    self.idle(path[i - 1])
+                    # if new path excute new path and idle there again ...
         except Exception as e:
             rospy.loginfo(f'[Error] {e}')
+    
+    def calculate_total_time(self, v_max, x1, x2, y1, y2):
+        return (math.sqrt((x2 - x1)**2+(y2 - y1)**2)/v_max)
+    
+    def idle(self, node_i):
+        #self.current_yaw 
+        x = NODES_POSITIONS[node_i][0]
+        y = NODES_POSITIONS[node_i][1]
+        self.br.sendTransform((x, y, 0),
+                            tf.transformations.quaternion_from_euler(0, 0, self.current_yaw - math.radians(90)),
+                            rospy.Time.now(),
+                            self.ns + "_kuka_mobile_base_link",
+                            "world")
 
-    def move_to_node(self, node_i, node_i_):
+
+    def move_to_node(self, node_i, node_i_, v_max):
         x_dist = (NODES_POSITIONS[node_i_][0] - NODES_POSITIONS[node_i][0]) / 100
         y_dist = (NODES_POSITIONS[node_i_][1] - NODES_POSITIONS[node_i][1]) / 100
         yaw_dist_at_node_i = (NODES_RELATIONSHIPS[node_i][node_i_][0] - math.degrees(self.current_yaw)) / 100
-
+        
         if yaw_dist_at_node_i != 0:
             x = NODES_POSITIONS[node_i][0]
             y = NODES_POSITIONS[node_i][1]
@@ -163,18 +174,28 @@ class RobotNavigator:
                                     rospy.Time.now(),
                                     self.ns + "_kuka_mobile_base_link",
                                     "world")
-                time.sleep(0.01)
+                time.sleep(0.1)
+                
             self.current_yaw = math.radians(NODES_RELATIONSHIPS[node_i][node_i_][0])
-
+        t_i = rospy.Time.now().to_sec()
+        t_i_ = t_i + self.calculate_total_time(v_max, NODES_POSITIONS[node_i][0], NODES_POSITIONS[node_i_][0], NODES_POSITIONS[node_i][1], NODES_POSITIONS[node_i_][1])
+        d = math.sqrt(NODES_POSITIONS[node_i][0]**2 + NODES_POSITIONS[node_i][1]) 
         for i in range(0, 101):
             x = NODES_POSITIONS[node_i][0] + x_dist * i
             y = NODES_POSITIONS[node_i][1] + y_dist * i
+            dt = t_i - t_i_
+            d = d + v_max*dt
+            t_i_ = t_i
+            #rospy.loginfo(f'Distance: {d}')
+            #rospy.loginfo(f'{t_i}:{t_i_}: Delta t: {dt}')
             self.br.sendTransform((x, y, 0),
                                 tf.transformations.quaternion_from_euler(0, 0, self.current_yaw - math.radians(90)),
                                 rospy.Time.now(),
                                 self.ns + "_kuka_mobile_base_link",
                                 "world")
+            
             time.sleep(0.01)
+            t_i = rospy.Time.now().to_sec()
 
         yaw_dist_at_node_i_ = (NODES_RELATIONSHIPS[node_i][node_i_][1] - math.degrees(self.current_yaw)) / 100
         if yaw_dist_at_node_i_ != 0:
@@ -198,4 +219,36 @@ class RobotNavigator:
 
 if __name__ == '__main__':
     navigator = RobotNavigator()
-    navigator.move_base()
+    ns = rospy.get_param('~ns_name', "robot1")
+    start_node = rospy.get_param('~start_node', 24)
+    goal_node = rospy.get_param('~goal_node', 36)
+    automatic_routine = rospy.get_param('~automatic', False)
+    v_max = rospy.get_param('~max_vel', 0.1)
+    
+        
+    path = navigator.find_shortest_path(start_node, goal_node)
+    marker_array = MarkerArray()
+    navigator.draw_path(path, marker_array)
+    #for i in range(0,10):
+    navigator.path_pub.publish(marker_array)
+
+    while not rospy.is_shutdown():
+        marker_array = MarkerArray()
+        #rospy.loginfo(F"here {ns} {path}, {automatic_routine}")
+        #if ns == 'robot1':
+        #    automatic_routine = True
+        if len(path) > 0 and automatic_routine:
+            navigator.draw_path(path, marker_array)
+            navigator.path_pub.publish(marker_array)
+            navigator.follow_path(path, v_max)
+            #pass
+        else:
+            x = NODES_POSITIONS[start_node][0]
+            y = NODES_POSITIONS[start_node][1]
+            yaw = math.radians(90)
+            navigator.br.sendTransform((x, y, 0),
+                                    tf.transformations.quaternion_from_euler(0, 0, yaw),
+                                    rospy.Time.now(),
+                                    navigator.ns + "_kuka_mobile_base_link",
+                                    "world")
+        navigator.rate.sleep()

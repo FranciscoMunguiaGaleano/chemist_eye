@@ -6,6 +6,7 @@ import heapq
 from visualization_msgs.msg import Marker
 from visualization_msgs.msg import MarkerArray
 from geometry_msgs.msg import Point
+from std_msgs.msg import Float32MultiArray, String
 
 NODES_POSITIONS = {
     1: [-2, 8.3], 2: [-1, 11], 22: [-12.4, 6.5], 3: [-1, 12], 4: [-1.5, 10.5], 24: [-3, 2.5],
@@ -70,6 +71,7 @@ class MarkerManager:
     def __init__(self):
         rospy.init_node('node_marker_publisher', anonymous=True)
         self.pub = rospy.Publisher('visualization_marker_array', MarkerArray, queue_size=10)
+        
         self.rate = rospy.Rate(1)
         self.node_states = {node: 1 for node in NODES_POSITIONS.keys()}  # Default state
 
@@ -85,7 +87,10 @@ class MarkerManager:
 
     def create_markers(self):
         marker_array = MarkerArray()
+
+        # Create node markers
         for node_id, position in NODES_POSITIONS.items():
+            # Cylinder marker for nodes
             marker = Marker()
             marker.header.frame_id = "world"
             marker.header.stamp = rospy.Time.now()
@@ -95,24 +100,45 @@ class MarkerManager:
             marker.action = Marker.ADD
             marker.pose.position.x = position[0]
             marker.pose.position.y = position[1]
-            marker.pose.position.z = 0.1
+            marker.pose.position.z = 0.1  # Slightly above ground
             marker.scale.x = 0.3
             marker.scale.y = 0.3
             marker.scale.z = 0.001
-            
+
             color = COLOR_MAP[self.node_states[node_id]]
             marker.color.r = color[0]
             marker.color.g = color[1]
             marker.color.b = color[2]
             marker.color.a = color[3]
-            
+
             marker_array.markers.append(marker)
-        
+
+            # Text marker to display node number
+            text_marker = Marker()
+            text_marker.header.frame_id = "world"
+            text_marker.header.stamp = rospy.Time.now()
+            text_marker.ns = "node_labels"
+            text_marker.id = node_id + 1000  # Unique ID for text markers
+            text_marker.type = Marker.TEXT_VIEW_FACING
+            text_marker.action = Marker.ADD
+            text_marker.pose.position.x = position[0]
+            text_marker.pose.position.y = position[1]
+            text_marker.pose.position.z = 0.5  # Slightly above the node
+            text_marker.scale.z = 0.4  # Size of the text
+            text_marker.color.r = 1.0
+            text_marker.color.g = 1.0
+            text_marker.color.b = 1.0
+            text_marker.color.a = 1.0
+            text_marker.text = str(node_id)  # Assign node ID as text
+
+            marker_array.markers.append(text_marker)
+
+        # Line markers for connections
         line_marker = Marker()
         line_marker.header.frame_id = "world"
         line_marker.header.stamp = rospy.Time.now()
         line_marker.ns = "lines"
-        line_marker.id = 1000
+        line_marker.id = 2000
         line_marker.type = Marker.LINE_LIST
         line_marker.action = Marker.ADD
         line_marker.scale.x = 0.01
@@ -120,24 +146,26 @@ class MarkerManager:
         line_marker.color.g = 0.0
         line_marker.color.b = 0.0
         line_marker.color.a = 0.8
-        
+
         for node, neighbors in NODES_RELATIONSHIPS.items():
             for neighbor in neighbors:
                 point1 = Point()
                 point1.x = NODES_POSITIONS[node][0]
                 point1.y = NODES_POSITIONS[node][1]
-                point1.z = 0.1
-                
+                point1.z = 0.1  # Slightly above ground
+
                 point2 = Point()
                 point2.x = NODES_POSITIONS[neighbor][0]
                 point2.y = NODES_POSITIONS[neighbor][1]
-                point2.z = 0.1
-                
+                point2.z = 0.1  # Slightly above ground
+
                 line_marker.points.append(point1)
                 line_marker.points.append(point2)
-        
+
         marker_array.markers.append(line_marker)
+
         return marker_array
+
 
     def publish_markers(self):
         while not rospy.is_shutdown():

@@ -89,7 +89,7 @@ class YOLOv8Node:
         #call_chemisteyeone_speech_service()
     def colour_callback(self, msg):
         self.markers_colours = msg.data
-        rospy.loginfo(F"Colour changed to {msg}")   
+        #rospy.loginfo(F"Colour changed to {msg}")   
         
     def load_config(self):
         config_path = os.path.join(os.path.dirname(__file__), CONFIG_FILE)
