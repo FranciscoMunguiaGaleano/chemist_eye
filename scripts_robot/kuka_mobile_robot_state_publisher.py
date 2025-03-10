@@ -72,6 +72,7 @@ class RobotNavigator:
         rospy.init_node('mobile_base_tf_broadcaster')
         self.ns = rospy.get_param('~ns_name', "robot1")
         self.warning_colour_one_sub = rospy.Subscriber('/cameraone/warning_color_topic', String, self.colour_callback)
+        self.text_marker_pub = rospy.Publisher('text_marker_kuka', Marker, queue_size=10)
         self.path_pub = rospy.Publisher(self.ns + '_visualization_path_marker_array', MarkerArray, queue_size=10)
         
         rospy.loginfo(F"Node inisialied")
@@ -157,6 +158,7 @@ class RobotNavigator:
                             rospy.Time.now(),
                             self.ns + "_kuka_mobile_base_link",
                             "world")
+        self.add_text_marker(x,y)
 
 
     def move_to_node(self, node_i, node_i_, v_max):
@@ -174,6 +176,7 @@ class RobotNavigator:
                                     rospy.Time.now(),
                                     self.ns + "_kuka_mobile_base_link",
                                     "world")
+                
                 time.sleep(0.1)
                 
             self.current_yaw = math.radians(NODES_RELATIONSHIPS[node_i][node_i_][0])
@@ -194,6 +197,7 @@ class RobotNavigator:
                                 self.ns + "_kuka_mobile_base_link",
                                 "world")
             
+            
             time.sleep(0.01)
             t_i = rospy.Time.now().to_sec()
 
@@ -208,6 +212,7 @@ class RobotNavigator:
                                     rospy.Time.now(),
                                     self.ns + "_kuka_mobile_base_link",
                                     "world")
+                #self.add_text_marker(x,y)
                 time.sleep(0.01)
             self.current_yaw = math.radians(NODES_RELATIONSHIPS[node_i][node_i_][1])
 
@@ -216,6 +221,33 @@ class RobotNavigator:
                             rospy.Time.now(),
                             self.ns + "_kuka_mobile_base_link",
                             "world")
+        self.add_text_marker(x,y)
+
+    def add_text_marker(self, x, y):
+        # Create a Marker for the text
+        text_marker = Marker()
+        text_marker.header.frame_id = "world"
+        text_marker.header.stamp = rospy.Time.now()
+        text_marker.ns = "text_labels"  # Namespace for the text markers
+        text_marker.id = 0  # You can use a counter or any unique ID for each marker
+        text_marker.type = Marker.TEXT_VIEW_FACING
+        text_marker.action = Marker.ADD
+        
+        # Set the position of the text marker above the robot
+        text_marker.pose.position = Point(x, y, 3.0)  # Slightly above the robot (adjust the z-value)
+        
+        # Set the text you want to display
+        text_marker.text = self.ns  # This will show the name of the robot (self.ns)
+        
+        # Set the size and color of the text
+        text_marker.scale.z = 0.5  # Text size (adjust as necessary)
+        text_marker.color.r = 1.0  # Red
+        text_marker.color.g = 1.0  # Green
+        text_marker.color.b = 1.0  # Blue
+        text_marker.color.a = 1.0  # Full opacity
+        
+        # Publish the text marker
+        self.text_marker_pub.publish(text_marker)
 
 if __name__ == '__main__':
     navigator = RobotNavigator()
@@ -251,4 +283,5 @@ if __name__ == '__main__':
                                     rospy.Time.now(),
                                     navigator.ns + "_kuka_mobile_base_link",
                                     "world")
+            navigator.add_text_marker(x,y)
         navigator.rate.sleep()

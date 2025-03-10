@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /TF1/Frames1
         - /rviz_view1
+        - /kuka12
       Splitter Ratio: 0.5
     Tree Height: 299
   - Class: rviz/Selection
@@ -85,6 +86,7 @@ Visualization Manager:
       Namespaces:
         human_markers_1: true
         lines: true
+        node_labels: true
         nodes: true
       Queue Size: 100
       Value: true
@@ -93,7 +95,7 @@ Visualization Manager:
       Marker Topic: /robot1/robot1_visualization_path_marker_array
       Name: Robot_Path_1
       Namespaces:
-        robot1path: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -101,7 +103,7 @@ Visualization Manager:
       Marker Topic: /robot2/robot2_visualization_path_marker_array
       Name: Robot_Path_2
       Namespaces:
-        {}
+        robot2path: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -109,7 +111,7 @@ Visualization Manager:
       Marker Topic: /robot3/robot3_visualization_path_marker_array
       Name: Robot_Path_3
       Namespaces:
-        {}
+        robot3path: true
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -519,6 +521,30 @@ Visualization Manager:
       Queue Size: 2
       Transport Hint: raw
       Unreliable: false
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /robot3/text_marker_kuka
+      Name: kuka3
+      Namespaces:
+        text_labels: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /robot2/text_marker_kuka
+      Name: kuka2
+      Namespaces:
+        text_labels: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /robot1/text_marker_kuka
+      Name: kuka1
+      Namespaces:
+        text_labels: true
+      Queue Size: 100
       Value: true
   Enabled: true
   Global Options:
