@@ -10,10 +10,28 @@
     <node name="speech_service_three_launcher" pkg="chemist_eye" type="dummy_speech_service_three.py" output="screen"/>
 
     <!-- Define a parameter for the bag file name -->
+    <arg name="bag_name_camera1" default="$(env HOME)/rosbags/camera1_labcoat.bag"/>
+    
+    <!-- Define a parameter for the bag file name -->
+    <arg name="bag_name_camera2" default="$(env HOME)/rosbags/camera2_labcoat_blue.bag"/>
+
+    <!-- Define a parameter for the bag file name -->
+    <arg name="bag_name_camera3" default="$(env HOME)/rosbags/camera3_prone.bag"/>
+
+    <!-- Define a parameter for the bag file name -->
     <arg name="bag_ir_cameras" default="$(env HOME)/rosbags/ir_cameras_default_recording.bag"/>
 
     <!-- Play the specified bag file for IR cameras -->
     <node pkg="rosbag" type="play" name="rosbag_play" args="$(arg bag_ir_cameras) --clock"/>
+
+    <!-- Play the specified bag file for camera 1 -->
+    <node pkg="rosbag" type="play" name="rosbag_play_1" args="$(arg bag_name_camera1) --clock"/>
+
+    <!-- Play the specified bag file for camera 2 -->
+    <node pkg="rosbag" type="play" name="rosbag_play_2" args="$(arg bag_name_camera2) --clock"/>
+
+    <!-- Play the specified bag file for camera 3 -->
+    <node pkg="rosbag" type="play" name="rosbag_play_3" args="$(arg bag_name_camera3) --clock"/>
 
     <!-- Set YOLO_VERBOSE to False -->
     <env name="YOLO_VERBOSE" value="False" />
@@ -40,16 +58,16 @@
     <node name="camerathree_tf_broadcaster" pkg="chemist_eye" type="camerathree_calibrator_tf.py" output="screen"/>
     
     <!-- Launch the detector node (camera one) -->
-    <node name="detector_one_node" pkg="chemist_eye" type="dummy_chemist_eye_detector.py" output="screen"/>
+    <node name="detector_one_node" pkg="chemist_eye" type="chemist_eye_detector.py" output="screen"/>
     
     <!-- Launch the detector node (camera two) -->
-    <node name="detector_two_node" pkg="chemist_eye" type="dummy_chemist_eye_detector_two.py" output="screen"/>
+    <node name="detector_two_node" pkg="chemist_eye" type="chemist_eye_detector_two.py" output="screen"/>
 
     <!-- Launch the detector node (camera three) -->
-    <node name="detector_three_node" pkg="chemist_eye" type="dummy_chemist_eye_detector_three.py" output="screen"/>
+    <node name="detector_three_node" pkg="chemist_eye" type="chemist_eye_detector_three.py" output="screen"/>
     
     <!-- Launch rviz -->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find chemist_eye)/config/experiment_3.rviz" output="screen">
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find chemist_eye)/config/chemist_eye.rviz" output="screen">
         <param name="args" value="2>/dev/null"/>
     </node>
 
@@ -60,7 +78,12 @@
     <node pkg="map_server" type="map_server" name="map_server" args="$(find chemist_eye)/maps/ACL_map.yaml"/>
 
     <!-- Launch llm node -->
-    <node name="llm_classificator_node" pkg="chemist_eye" type="llm.py" output="screen"/>
+    <node name="llm_classificator_node" pkg="chemist_eye" type="llm.py" output="screen">
+        <param name="chemist_eye" value="camera1"/>
+        <param name="ppe" value="True"/>
+        <param name="prone" value="False"/>
+        <param name="datasetppe" value="WHITE"/>
+    </node>
 
     <!-- Optional: Add a short delay to allow the services to fully initialise -->
     <param name="service_call_delay" value="10" />
@@ -102,7 +125,7 @@
         <node name="mobile_base_tf_broadcaster" pkg="chemist_eye" type="kuka_mobile_robot_state_publisher.py" output="screen">
             <param name="start_node" value="36"/>
             <param name="goal_node" value="32"/>
-            <param name="automatic" value="True"/>
+            <param name="automatic" value="False"/>
             <param name="ns_name" value="robot2"/>
         </node>
     </group>
@@ -120,20 +143,11 @@
         <node name="mobile_base_tf_broadcaster" pkg="chemist_eye" type="kuka_mobile_robot_state_publisher.py" output="screen">
             <param name="start_node" value="4"/>
             <param name="goal_node" value="3"/>
-            <param name="automatic" value="True"/>
+            <param name="automatic" value="False"/>
             <param name="ns_name" value="robot3"/>
         </node>
     </group>
     <!-- Navigation grhap visualizer-->
     <node name="navigation_graph_node" pkg="chemist_eye" type="navigation_graph.py" output="screen"/>
-
-    <!-- Launch the detector node (camera one) -->
-    <node name="dummy_llm_node" pkg="chemist_eye" type="dummy_llm.py" output="screen">
-        <param name="exp" value="accident"/>   
-        <param name="llm_model" value="llava:7b"/>
-    </node>
-
-     <!-- Launch Slack bot node -->
-    <node name="slack_bot_node" pkg="chemist_eye" type="ros_slack.py" output="screen"/>
     
 </launch>

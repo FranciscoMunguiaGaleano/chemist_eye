@@ -26,7 +26,7 @@
 
     <!-- Launch fire detection node -->
     <node name="fire_detection_node" pkg="chemist_eye" type="fire_detection.py" output="screen">
-        <param name="MAX_TEMP" value="500"/>
+        <param name="MAX_TEMP" value="200"/>
         <param name="llm_model" value="llava:7b"/>
     </node>
    
@@ -127,13 +127,12 @@
     <!-- Navigation grhap visualizer-->
     <node name="navigation_graph_node" pkg="chemist_eye" type="navigation_graph.py" output="screen"/>
 
-    <!-- Launch the detector node (camera one) -->
-    <node name="dummy_llm_node" pkg="chemist_eye" type="dummy_llm.py" output="screen">
-        <param name="exp" value="accident"/>   
-        <param name="llm_model" value="llava:7b"/>
-    </node>
-
      <!-- Launch Slack bot node -->
     <node name="slack_bot_node" pkg="chemist_eye" type="ros_slack.py" output="screen"/>
+
+    <node name="dummy_llm_node" pkg="chemist_eye" type="dummy_llm.py" output="screen">
+        <param name="exp" value="fire"/>   
+        <param name="llm_model" value="llava:7b"/>
+    </node>
     
 </launch>

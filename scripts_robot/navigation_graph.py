@@ -66,6 +66,8 @@ COLOR_MAP = {
 
 PATH_COLOR = (1.0, 0.0, 1.0, 1.0)  # Pink
 
+EXIT_LOCATIONS = [[-10.5, 1], [-8.8, 17]]
+
 
 class MarkerManager:
     def __init__(self):
@@ -132,6 +134,26 @@ class MarkerManager:
             text_marker.text = str(node_id)  # Assign node ID as text
 
             marker_array.markers.append(text_marker)
+
+        for i, exit_pos in enumerate(EXIT_LOCATIONS):
+            exit_marker = Marker()
+            exit_marker.header.frame_id = "world"
+            exit_marker.header.stamp = rospy.Time.now()
+            exit_marker.ns = "exit_labels"
+            exit_marker.id = 3000 + i  # Unique ID for exits
+            exit_marker.type = Marker.TEXT_VIEW_FACING
+            exit_marker.action = Marker.ADD
+            exit_marker.pose.position.x = exit_pos[0]
+            exit_marker.pose.position.y = exit_pos[1]
+            exit_marker.pose.position.z = 0.5  # Above ground level
+            exit_marker.scale.z = 0.5  # Adjust text size
+            exit_marker.color.r = 1.0  # Red text for visibility
+            exit_marker.color.g = 0.0
+            exit_marker.color.b = 0.0
+            exit_marker.color.a = 1.0
+            exit_marker.text = "EXIT"  # Label as EXIT
+
+            marker_array.markers.append(exit_marker)
 
         # Line markers for connections
         line_marker = Marker()

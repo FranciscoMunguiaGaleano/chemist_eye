@@ -9,6 +9,7 @@ import time
 from std_msgs.msg import Float32MultiArray, String
 
 
+
 NODES_POSITIONS = {
     1: [-2, 8.3], 2: [-1, 11], 22: [-12.4, 6.5], 3: [-1, 12], 4: [-1.5, 10.5], 24: [-3, 2.5],
     5: [-1.5, 12.5], 25: [-3, 3], 6: [-1.5, 8], 26: [-3.4, 2.5], 7: [-0.7, 8], 27: [-3.4, 2],
@@ -71,7 +72,11 @@ class RobotNavigator:
     def __init__(self):
         rospy.init_node('mobile_base_tf_broadcaster')
         self.ns = rospy.get_param('~ns_name', "robot1")
-        self.warning_colour_one_sub = rospy.Subscriber('/cameraone/warning_color_topic', String, self.colour_callback)
+        self.warning_colour_one_sub = rospy.Subscriber('/cameraone/warning_color_topic', String, self.colourone_callback)
+        self.warning_colour_two_sub = rospy.Subscriber('/cameratwo/warning_color_topic', String, self.colourtwo_callback)
+        self.warning_colour_three_sub = rospy.Subscriber('/camerathree/warning_color_topic', String, self.colourthree_callback)
+        self.control_robot_one_sub = rospy.Subscriber('node', String, self.set_nav_goal)  # Publish color data
+        self.fire_call_sub = rospy.Subscriber('fire_emergency', String, self.fire_callback)  # Publish color data
         self.text_marker_pub = rospy.Publisher('text_marker_kuka', Marker, queue_size=10)
         self.path_pub = rospy.Publisher(self.ns + '_visualization_path_marker_array', MarkerArray, queue_size=10)
         
@@ -80,15 +85,39 @@ class RobotNavigator:
         self.rate = rospy.Rate(10)
         self.current_yaw = math.radians(90)
         self.markers_colours_one = 'gray'
+        self.markers_colours_two = 'gray'
+        self.markers_colours_three = 'gray'
         self.emergency = False
+        self.navigation_goal = None
+
+    def fire_callback(self, msg):
+        if msg.data == "True":
+            self.emergency = True
     
-    def colour_callback(self, msg):
+    def set_nav_goal(self, msg):
+        self.navigation_goal = int(msg.data)
+        #rospy.loginfo(F"Navigating {self.ns} to node: {msg}")
+    def colourone_callback(self, msg):
         self.markers_colours_one = msg.data
-        #rospy.loginfo(F"Colour changed to {msg}")
         if self.markers_colours_one != 'gray':
             self.emergency = True
-        else:
+        if self.markers_colours_three == 'gray' and self.markers_colours_two == 'gray' and self.markers_colours_one == 'gray':
             self.emergency = False
+    def colourtwo_callback(self, msg):
+        self.markers_colours_two = msg.data
+        #rospy.loginfo(F"Colour changed to {msg}")
+        if self.markers_colours_two != 'gray':
+            self.emergency = True
+        if self.markers_colours_three == 'gray' and self.markers_colours_two == 'gray' and self.markers_colours_one == 'gray':
+            self.emergency = False
+    def colourthree_callback(self, msg):
+        self.markers_colours_three = msg.data
+        #rospy.loginfo(F"Colour changed to {msg}")
+        if self.markers_colours_three != 'gray':
+            self.emergency = True
+        if self.markers_colours_three == 'gray' and self.markers_colours_two == 'gray' and self.markers_colours_one == 'gray':
+            self.emergency = False
+        
 
     def find_shortest_path(self, start, goal):
         queue = [(0, start, [])]
@@ -121,28 +150,53 @@ class RobotNavigator:
             path_marker.points.append(point)
         marker_array.markers.append(path_marker)
 
-    def obstacles_callback(self, msg):
-        return
-
-    def navigate_robot(self, start_node, goal_node):
-        return
-
     def follow_path(self, path, v_max):
         try:
             for i in range(0, len(path) - 1):
                 self.move_to_node(path[i], path[i + 1], v_max)
-                #rospy.loginfo(F"Colour changed to {self.emergency}, {self.markers_colours_one}")
                 while self.emergency:
                     #rospy.loginfo('Emergency detecte idleing robots')
                     self.idle(path[i + 1])
-                    # if new path excute new path and idle there again ...
+                    if self.navigation_goal is not None:
+                        path_ = self.find_shortest_path(path[i + 1], self.navigation_goal)
+                        # navigate path
+                        if len(path_) > 0 and automatic_routine:
+                            rospy.loginfo(f'New Path found for {self.ns}: {path_}')
+                            self.draw_path(path_, marker_array)
+                            self.path_pub.publish(marker_array)
+                            for j in range(0, len(path_) - 1):
+                                self.move_to_node(path_[j], path_[j + 1], v_max)
+                            while self.emergency:
+                                self.idle(self.navigation_goal)
+                                # Wait until slack gives a continue ...
+                        else:
+                            while self.emergency:
+                                self.idle(path[i + 1])
+
+                        
+                        
                     
             for i in range(len(path) - 1, 0, -1):
                 self.move_to_node(path[i], path[i - 1], v_max)
                 while self.emergency:
                     #rospy.loginfo('Emergency detecte idleing robots')
                     self.idle(path[i - 1])
-                    # if new path excute new path and idle there again ...
+                    if self.navigation_goal is not None:
+                        path_ = self.find_shortest_path(path[i - 1], self.navigation_goal)
+                        # navigate path
+                        if len(path_) > 0 and automatic_routine:
+                            rospy.loginfo(f'New Path found for {self.ns}: {path_}')
+                            self.draw_path(path_, marker_array)
+                            self.path_pub.publish(marker_array)
+                            for j in range(0, len(path_) - 1):
+                                self.move_to_node(path_[j], path_[j + 1], v_max)
+                            while self.emergency:
+                                self.idle(self.navigation_goal)
+                                # Wait until slack gives a continue ...
+                        else:
+                            while self.emergency:
+                                self.idle(path[i - 1])
+
         except Exception as e:
             rospy.loginfo(f'[Error] {e}')
     
@@ -169,6 +223,7 @@ class RobotNavigator:
         if yaw_dist_at_node_i != 0:
             x = NODES_POSITIONS[node_i][0]
             y = NODES_POSITIONS[node_i][1]
+            self.add_text_marker(x,y)
             for i in range(0, 101):
                 yaw_i = self.current_yaw + math.radians(yaw_dist_at_node_i) * i
                 self.br.sendTransform((x, y, 0),
@@ -186,6 +241,7 @@ class RobotNavigator:
         for i in range(0, 101):
             x = NODES_POSITIONS[node_i][0] + x_dist * i
             y = NODES_POSITIONS[node_i][1] + y_dist * i
+            self.add_text_marker(x,y)
             dt = t_i - t_i_
             d = d + v_max*dt
             t_i_ = t_i
@@ -205,6 +261,7 @@ class RobotNavigator:
         if yaw_dist_at_node_i_ != 0:
             x = NODES_POSITIONS[node_i_][0]
             y = NODES_POSITIONS[node_i_][1]
+            self.add_text_marker(x,y)
             for i in range(0, 101):
                 yaw_i = self.current_yaw + math.radians(yaw_dist_at_node_i_) * i
                 self.br.sendTransform((x, y, 0),
@@ -263,6 +320,9 @@ if __name__ == '__main__':
     navigator.draw_path(path, marker_array)
     #for i in range(0,10):
     navigator.path_pub.publish(marker_array)
+    x = NODES_POSITIONS[start_node][0]
+    y = NODES_POSITIONS[start_node][1]
+    navigator.add_text_marker(x,y)
 
     while not rospy.is_shutdown():
         marker_array = MarkerArray()
@@ -277,6 +337,7 @@ if __name__ == '__main__':
         else:
             x = NODES_POSITIONS[start_node][0]
             y = NODES_POSITIONS[start_node][1]
+            navigator.add_text_marker(x,y)
             yaw = math.radians(90)
             navigator.br.sendTransform((x, y, 0),
                                     tf.transformations.quaternion_from_euler(0, 0, yaw),

@@ -21,6 +21,10 @@ DETECTION_CONFIDENCE = 0.8
 class VLLMClassification():
     def __init__(self):
         rospy.init_node('llm_classification_node', anonymous=True)
+        self.chemist_eye = rospy.get_param('~chemist_eye', 'all')
+        self.prone = rospy.get_param('~prone', True)
+        self.ppe = rospy.get_param('~ppe', True)
+        self.save_dataset = rospy.get_param('~datasetppe', "WHITE") # WHITE, BLUE, GREEN, GRAY
         self.model = YOLO("yolov8n.pt", verbose=False)  # YOLOv8 nano model
         self.target_classes = [0]
         self.bridge = CvBridge()

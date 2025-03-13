@@ -1,5 +1,7 @@
 temp/
 temp/*
+*.ini
+*.log
 
 # Ignore compiled files
 *.o

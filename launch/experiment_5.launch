@@ -67,6 +67,7 @@
 
     <!-- Launch Image Joiner -->
     <node name="imgs_joiner_node" pkg="chemist_eye" type="images_joiner.py" output="screen"/>
+
     <!-- Robot 1 -->
     
     <!-- Define parameters for initial position and orientation under robot1 namespace -->
@@ -107,7 +108,6 @@
         </node>
     </group>
 
-
     <!-- Repeat similar setup for robot3 -->
     <arg name="robot3_namespace" default="robot3"/>
     <group ns="robot3">
@@ -124,16 +124,17 @@
             <param name="ns_name" value="robot3"/>
         </node>
     </group>
+
     <!-- Navigation grhap visualizer-->
     <node name="navigation_graph_node" pkg="chemist_eye" type="navigation_graph.py" output="screen"/>
 
     <!-- Launch the detector node (camera one) -->
     <node name="dummy_llm_node" pkg="chemist_eye" type="dummy_llm.py" output="screen">
-        <param name="exp" value="accident"/>   
+        <param name="exp" value="ppe"/>   
         <param name="llm_model" value="llava:7b"/>
     </node>
 
      <!-- Launch Slack bot node -->
     <node name="slack_bot_node" pkg="chemist_eye" type="ros_slack.py" output="screen"/>
-    
+
 </launch>

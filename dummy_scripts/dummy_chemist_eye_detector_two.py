@@ -20,7 +20,7 @@ import random
 BOUNDED_DISTANCE = 8.0
 CONFIG_FILE = '../config/cameraone_tf_conf.yaml'
 DETECTION_CONFIDENCE = 0.7
-WORKERS = [[2, 1], [-2, 2.5], [1, 4]]
+WORKERS = [[1, 0.7]]
 
 class ExperimentsNode:
     def __init__(self):
@@ -30,7 +30,7 @@ class ExperimentsNode:
         self.load_config()
 
         # Subscriptions
-        self.warning_colour_one_sub = rospy.Subscriber('cameraone/warning_color_topic', String, self.colour_callback)
+        self.warning_colour_one_sub = rospy.Subscriber('cameratwo/warning_color_topic', String, self.colour_callback)
 
         # Publisher for TF transforms
         self.tf_broadcaster = tf.TransformBroadcaster()
@@ -43,8 +43,6 @@ class ExperimentsNode:
         self.markers_colours = "gray"
         self.rate = rospy.Rate(10)
         self.pos_x, self.pos_z = random.choice(WORKERS)
-        print(self.pos_x)
-        time.sleep(10)
         self.direction = True
         self.change = 0
 
@@ -80,7 +78,7 @@ class ExperimentsNode:
                 self.direction = not self.direction
                 self.change = 0
             self.change += 1
-        self.broadcast_tf(self.pos_x, y_real, self.pos_z, 1)
+        self.broadcast_tf(self.pos_x, y_real, self.pos_z, 2)
 
 
     def broadcast_tf(self, x, y, z, human_id):
@@ -90,7 +88,7 @@ class ExperimentsNode:
         """
         tf_msg = TransformStamped()
         tf_msg.header.stamp = rospy.Time.now()
-        tf_msg.header.frame_id = "camera_link"  # Parent frame
+        tf_msg.header.frame_id = "cameratwo_link"  # Parent frame
         tf_msg.child_frame_id = f"human_{human_id}_frame"  # Unique frame for each person
 
         tf_msg.transform.translation.x = x
