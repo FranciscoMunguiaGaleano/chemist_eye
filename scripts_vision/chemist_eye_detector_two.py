@@ -228,7 +228,7 @@ class YOLOv8Node:
         """
         self.counter=0
         delete_marker = Marker()
-        delete_marker.header.frame_id = f"human_{human_id}_frame"
+        delete_marker.header.frame_id = f"humantwo_{human_id}_frame"
         delete_marker.header.stamp = rospy.Time.now()
         delete_marker.ns = f"human_markers_{human_id}"
 
@@ -295,7 +295,7 @@ class YOLOv8Node:
         tf_msg = TransformStamped()
         tf_msg.header.stamp = rospy.Time.now()
         tf_msg.header.frame_id = "cameratwo_link"  # Parent frame
-        tf_msg.child_frame_id = f"human_{human_id}_frame"  # Unique frame for each person
+        tf_msg.child_frame_id = f"humantwo_{human_id}_frame"  # Unique frame for each person
 
         tf_msg.transform.translation.x = x
         tf_msg.transform.translation.y = - (1.3) / 2 + self.camera_height
@@ -344,7 +344,7 @@ class YOLOv8Node:
             B = 1.0
         # Create the cylinder (body)
         cylinder_marker = Marker()
-        cylinder_marker.header.frame_id = f"human_{human_id}_frame"
+        cylinder_marker.header.frame_id = f"humantwo_{human_id}_frame"
         cylinder_marker.header.stamp = rospy.Time.now()
         cylinder_marker.ns = f"human_markers_{human_id}"
         cylinder_marker.id = human_id * 3 +1  # Unique ID for each human (body)
@@ -363,7 +363,7 @@ class YOLOv8Node:
 
         # Create the sphere (head)
         sphere_marker = Marker()
-        sphere_marker.header.frame_id = f"human_{human_id}_frame"
+        sphere_marker.header.frame_id = f"humantwo_{human_id}_frame"
         sphere_marker.header.stamp = rospy.Time.now()
         sphere_marker.ns = f"human_markers_{human_id}"
         sphere_marker.id = human_id * 3 + 2  # Unique ID for each human (head)
@@ -382,7 +382,7 @@ class YOLOv8Node:
 
         # Create the shoulder markers (positioned above the body at shoulder level)
         shoulder_marker = Marker()
-        shoulder_marker.header.frame_id = f"human_{human_id}_frame"
+        shoulder_marker.header.frame_id = f"humantwo_{human_id}_frame"
         shoulder_marker.header.stamp = rospy.Time.now()
         shoulder_marker.ns = f"human_markers_{human_id}"
         shoulder_marker.id = human_id * 3 + 3  # Unique ID for each human (shoulder)

@@ -10,13 +10,13 @@
     <node name="speech_service_three_launcher" pkg="chemist_eye" type="dummy_speech_service_three.py" output="screen"/>
 
     <!-- Define a parameter for the bag file name -->
-    <arg name="bag_name_camera1" default="$(env HOME)/rosbags/camera1_prone.bag"/>
+    <arg name="bag_name_camera1" default="$(env HOME)/rosbags/camera1_labcoat_gray.bag"/>
     
     <!-- Define a parameter for the bag file name -->
-    <arg name="bag_name_camera2" default="$(env HOME)/rosbags/camera2_prone.bag"/>
+    <arg name="bag_name_camera2" default="$(env HOME)/rosbags/camera2_labcoat_gray.bag"/>
 
     <!-- Define a parameter for the bag file name -->
-    <arg name="bag_name_camera3" default="$(env HOME)/rosbags/camera3_prone.bag"/>
+    <arg name="bag_name_camera3" default="$(env HOME)/rosbags/camera3_labcoat_gray.bag"/>
 
     <!-- Define a parameter for the bag file name -->
     <arg name="bag_ir_cameras" default="$(env HOME)/rosbags/ir_cameras_default_recording.bag"/>
@@ -79,10 +79,10 @@
 
     <!-- Launch llm node -->
     <node name="llm_classificator_node" pkg="chemist_eye" type="llm.py" output="screen">
-        <param name="chemist_eye" value="camera3"/>
-        <param name="ppe" value="False"/>
-        <param name="prone" value="True"/>
-        <param name="datasetppe" value="WHITE"/>
+        <param name="chemist_eye" value="camera1"/>
+        <param name="ppe" value="True"/>
+        <param name="prone" value="False"/>
+        <param name="datasetppe" value="GRAY"/>
         <param name="producedataset" value="True"/>
     </node>
 
@@ -150,5 +150,6 @@
     </group>
     <!-- Navigation grhap visualizer-->
     <node name="navigation_graph_node" pkg="chemist_eye" type="navigation_graph.py" output="screen"/>
-    
+    <!-- Run 2Dmap node-->
+    <node name="twod_map" pkg="chemist_eye" type="tf_to_twod_node" output="screen"/>
 </launch>

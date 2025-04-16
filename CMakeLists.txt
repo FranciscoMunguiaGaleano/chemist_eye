@@ -15,6 +15,11 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   visualization_msgs
   message_generation
+  roscpp
+  tf2_ros
+  tf
+  geometry_msgs
+  image_transport
 )
 
 
@@ -120,10 +125,7 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
-)
+include_directories(${catkin_INCLUDE_DIRS})
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -138,7 +140,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/chemist_eye_node.cpp)
+add_executable(tf_to_twod_node scripts_cpp/tf_to_twod_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -151,9 +153,7 @@ include_directories(
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(tf_to_twod_node ${catkin_LIBRARIES})
 
 #############
 ## Install ##
