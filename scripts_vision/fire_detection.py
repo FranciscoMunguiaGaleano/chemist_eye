@@ -12,6 +12,7 @@ import cv2
 import re
 from typing import Tuple, Optional
 from cv_bridge import CvBridge
+import random
 
 MAX_TEMPERATURE = 200  # Maximum threshold for fire detection
 VALID_NODES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 22, 24, 25, 26, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39]  # Valid node numbers
@@ -38,6 +39,21 @@ class FireDetectionNode:
         rospy.init_node('fire_detection_node', anonymous=True)
         self.max_temp = rospy.get_param('~MAX_TEMP', 500)
         self.llm_model = rospy.get_param('~llm_model', 'llava:7b')
+        self.map_mode = rospy.get_param('~map_mode', '3D')  # default to 3D
+        self.c_mode = rospy.get_param('~c_mode', 'C1') # Condition mode C1, C2, C3
+        self.exp_number = rospy.get_param('~exp_number', '1') 
+        self.rand_mode = rospy.get_param('~rand_mode', False)
+        self.random_sample = random.sample([1, 2], 1)
+
+        # Decide which image topic to subscribe to
+        if self.map_mode == '2D':
+            rospy.Subscriber("/maptwo2", Image, self.rviz_view_callback)
+        else:
+            rospy.Subscriber("/rviz_camera_view", Image, self.rviz_view_callback)
+
+        # Subscribe to available nodes
+        self.available_nodes = []
+        rospy.Subscriber("/available_nodes", String, self.available_nodes_callback)
 
         # Publishers for RViz markers
         self.marker_pub1 = rospy.Publisher('fire_marker_1', Marker, queue_size=10)
@@ -53,9 +69,9 @@ class FireDetectionNode:
         self.warning_colour_three_pub = rospy.Publisher('camerathree/warning_color_topic', String, queue_size=10)  # Publish color data
 
         # Subscribers to temperature topics
-        rospy.Subscriber('camerair/max_temperature', Float32, self.temperature_callback, ('IR_camera_link', 1, self.marker_pub1, self.text_pub1))
-        rospy.Subscriber('camerair_two/max_temperature', Float32, self.temperature_callback, ('IR_cameratwo_link', 2, self.marker_pub2, self.text_pub2))
-        rospy.Subscriber("/rviz_camera_view", Image, self.rviz_view_callback)
+        rospy.Subscriber('camerair/max_temperature', Float32, self.temperature_callback_1, ('IR_camera_link', 1, self.marker_pub1, self.text_pub1))
+        rospy.Subscriber('camerair_two/max_temperature', Float32, self.temperature_callback_2, ('IR_cameratwo_link', 2, self.marker_pub2, self.text_pub2))
+        # rospy.Subscriber("/rviz_camera_view", Image, self.rviz_view_callback)
 
         # Publishers for robot control
         self.control_robot_one_pub = rospy.Publisher('robot1/node', String, queue_size=10)
@@ -70,19 +86,50 @@ class FireDetectionNode:
 
         self.latest_image = None
         self.bridge = CvBridge()
-        self.temp = 0
+        self.temp1 = 0
+        self.temp2 = 0
         self.freeze_temp = False
         rospy.loginfo("🔥 Fire detection node started. Monitoring temperature with RViz markers...")
         while not rospy.is_shutdown():
-            if self.temp*3 > self.max_temp:
-                self.freeze_temp = True
-                for i in range(0, 10):
-                    self.warning_colour_one_pub.publish("yellow")
-                    self.warning_colour_two_pub.publish("yellow")
-                    self.warning_colour_three_pub.publish("yellow")
-                    time.sleep(0.1)
-                rospy.loginfo(f"🔥 Potential fire detected! Temperature exceeded {self.max_temp}°C!")
-                self.handle_fire_detection()
+            if not self.rand_mode:
+                if self.temp1*1 > self.max_temp or self.temp2*1>self.max_temp:
+                    self.freeze_temp = True
+                    for i in range(0, 10):
+                        self.warning_colour_one_pub.publish("yellow")
+                        self.warning_colour_two_pub.publish("yellow")
+                        self.warning_colour_three_pub.publish("yellow")
+                        time.sleep(0.1)
+                    rospy.loginfo(f"🔥 Potential fire detected! Temperature exceeded {self.max_temp}°C!")
+                    self.handle_fire_detection()
+            else:
+                if self.random_sample == 1:
+                    if self.temp1*1 > self.max_temp:
+                        self.freeze_temp = True
+                        for i in range(0, 10):
+                            self.warning_colour_one_pub.publish("yellow")
+                            self.warning_colour_two_pub.publish("yellow")
+                            self.warning_colour_three_pub.publish("yellow")
+                            time.sleep(0.1)
+                        rospy.loginfo(f"🔥 Potential fire detected! Temperature exceeded {self.max_temp}°C!")
+                        self.handle_fire_detection()
+                else:
+                    if self.temp2*1>self.max_temp:
+                        self.freeze_temp = True
+                        for i in range(0, 10):
+                            self.warning_colour_one_pub.publish("yellow")
+                            self.warning_colour_two_pub.publish("yellow")
+                            self.warning_colour_three_pub.publish("yellow")
+                            time.sleep(0.1)
+                        rospy.loginfo(f"🔥 Potential fire detected! Temperature exceeded {self.max_temp}°C!")
+                        self.handle_fire_detection()
+    
+    def available_nodes_callback(self, msg):
+        try:
+            self.available_nodes = msg.data
+            #rospy.loginfo(f"Updated available nodes: {self.available_nodes}")
+        except Exception as e:
+            rospy.logwarn(f"Failed to parse available nodes: {e}")
+
         
     def get_color_from_temperature(self, temperature):
         """ Returns an RGB color transitioning from blue (cold) to red (hot). """
@@ -153,20 +200,35 @@ class FireDetectionNode:
 
         return marker
 
-    def temperature_callback(self, msg, args):
+    def temperature_callback_1(self, msg, args):
         """ Callback for temperature sensors, publishing markers in RViz. """
         frame_id, marker_id, marker_pub, text_pub = args
         temp = msg.data
-        self.temp = temp
+        self.temp1 = temp
         if self.freeze_temp:
-            temp = self.max_temp/3
+            temp = self.max_temp
 
         # Publish sphere marker
-        sphere_marker = self.create_sphere_marker(temp*3, frame_id, marker_id)
+        sphere_marker = self.create_sphere_marker(temp, frame_id, marker_id)
         marker_pub.publish(sphere_marker)
 
         # Publish temperature text marker
-        text_marker = self.create_text_marker(temp*3, frame_id, marker_id)
+        text_marker = self.create_text_marker(temp, frame_id, marker_id)
+        text_pub.publish(text_marker)
+    def temperature_callback_2(self, msg, args):
+        """ Callback for temperature sensors, publishing markers in RViz. """
+        frame_id, marker_id, marker_pub, text_pub = args
+        temp = msg.data
+        self.temp2 = temp
+        if self.freeze_temp:
+            temp = self.max_temp
+
+        # Publish sphere marker
+        sphere_marker = self.create_sphere_marker(temp, frame_id, marker_id)
+        marker_pub.publish(sphere_marker)
+
+        # Publish temperature text marker
+        text_marker = self.create_text_marker(temp, frame_id, marker_id)
         text_pub.publish(text_marker)
 
     def rviz_view_callback(self, msg):
@@ -205,8 +267,78 @@ class FireDetectionNode:
     def handle_fire_detection(self):
         """ Handles actions when a fire is detected. """
         while True:
-            query = "The image is an RViz map view with meeples representing people: gray indicating normal, yellow for someone not wearing PPE, and red for an accident. There are three KUKA robots (robot1, robot2, robot3) on mobile bases. Green dots represent robot movement locations, numbered as: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 22, 24, 25, 26, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39. Blue/red spheres show temperature at specific locations; a potential fire has been detected. To avoid the fire, suggest the best nodes for robot1, robot2, and robot3 to move to. The nodes should be as far from the fire as possible and not close to each other. Respond in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, Z are the selected node numbers (each must be 1-digit). Avoid selecting the same or nearby nodes for different robots."
-            answer = self.query_llm(self.latest_image, query)
+            if self.c_mode == 'C1':
+                if self.map_mode == '2D':
+                    query = (
+                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                    f"Green dots represent possible robot navigation nodes. "
+                    f"Blue and red circles mark areas of detected temperature; a potential fire has been detected. "
+                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire. "
+                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node. "
+                    f"Respond in this exact format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                    f"Avoid assigning the same or nearby nodes to different robots."
+                    f"The node number should be 0 when there is not necessity to move a robot.")
+                else:
+                    query = (
+                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map."
+                    f"Green dots represent possible robot navigation nodes. "
+                    f"Blue and red spheres mark areas of detected temperature; a potential fire has been detected. "
+                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire. "
+                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node. "
+                    f"Respond in this exact format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                    f"Avoid assigning the same or nearby nodes to different robots."
+                    f"The node number should be 0 when there is not necessity to move a robot.")
+            if self.c_mode == 'C2':
+                if self.map_mode == '2D':
+                    query = (
+                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                    f"Green dots represent possible robot navigation nodes, which are: {VALID_NODES}. "
+                    f"Blue and red circles mark areas of detected temperature; a potential fire has been detected. "
+                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire. "
+                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node. "
+                    f"Respond in this exact format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                    f"Avoid assigning the same or nearby nodes to different robots."
+                    f"The node number should be 0 when there is not necessity to move a robot.")
+                else:
+                    query = (
+                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map."
+                    f"Green dots represent possible robot navigation nodes, which are: {VALID_NODES}. "
+                    f"Blue and red spheres mark areas of detected temperature; a potential fire has been detected. "
+                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire. "
+                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node. "
+                    f"Respond in this exact format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                    f"Avoid assigning the same or nearby nodes to different robots."
+                    f"The node number should be 0 when there is not necessity to move a robot.")
+            if self.c_mode == 'C3':
+                if self.map_mode == '2D':
+                    query = (
+                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                    f"Green dots represent possible robot navigation nodes, which are: {self.available_nodes}. "
+                    f"Blue and red circles mark areas of detected temperature; a potential fire has been detected. "
+                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire. "
+                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node. "
+                    f"Respond in this exact format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                    f"Avoid assigning the same or nearby nodes to different robots."
+                    f"The node number should be 0 when there is not necessity to move a robot.")
+                else:
+                    query = (
+                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map."
+                    f"Green dots represent possible robot navigation nodes, which are: {self.available_nodes}. "
+                    f"Blue and red spheres mark areas of detected temperature; a potential fire has been detected. "
+                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire. "
+                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node. "
+                    f"Respond in this exact format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                    f"Avoid assigning the same or nearby nodes to different robots."
+                    f"The node number should be 0 when there is not necessity to move a robot.")
+
+            
+            answer = self.query_llm(cv2.resize(self.latest_image, (0, 0), fx=0.9, fy=0.9), query)
             rospy.loginfo(f"LLM Response to serious accident: {answer}")
             nodes = extract_robot_numbers(answer)
             rospy.loginfo(f'The node numbers are: {nodes}')
@@ -214,27 +346,27 @@ class FireDetectionNode:
                 rospy.loginfo(f'Kuka 1 should go to: {nodes[0]}')
                 rospy.loginfo(f'kuka 2 should go to: {nodes[1]}')
                 rospy.loginfo(f'Kuka 3 should go to: {nodes[2]}')
-            except:
-                rospy.loginfo(f'Invalid locations')
-            if nodes[0] is not None and nodes[1] is not None and nodes[2] is not None and nodes[0] in VALID_NODES and nodes[1] in VALID_NODES and nodes[2] in VALID_NODES:
                 self.move_robots(nodes, answer)
                 break
-            else: 
-                rospy.loginfo("LLM failed to give a valid answer, querying again...")
+            except:
+                rospy.loginfo(f'Invalid locations')
 
     def move_robots(self, nodes, answer):
         """ Move robots to selected nodes. """
         for i in range(0, 10):
-            self.event_description_pub.publish(f"🔥 *A potential fire has been detected* {answer}")
+            self.event_description_pub.publish(f"🔥 *A potential fire has been detected* [{self.llm_model}] {answer}.  Experiment: {self.exp_number}")
         for i in range(0, 10):
             self.message_trigger_pub.publish("True")
         for i in range (0,10):
-            self.control_robot_one_pub.publish(str(nodes[0]))
-            self.control_robot_two_pub.publish(str(nodes[1]))
-            self.control_robot_three_pub.publish(str(nodes[2]))
+            if nodes[0] in VALID_NODES:
+                self.control_robot_one_pub.publish(str(nodes[0]))
+            if nodes[1] in VALID_NODES:
+                self.control_robot_two_pub.publish(str(nodes[1]))
+            if nodes[2] in VALID_NODES:
+                self.control_robot_three_pub.publish(str(nodes[2]))
         time.sleep(90)
         for i in range(0, 10):
-            self.event_description_pub.publish(f"⚠️ *The following image displays the current state of the lab after the robots have been moved.*")
+            self.event_description_pub.publish(f"⚠️ *The following image displays the current state of the lab after the robots have been moved.* Experiment[{self.llm_model}]: {self.exp_number}")
         for i in range(0, 10):
             self.message_trigger_pub.publish("True")
 

@@ -24,10 +24,12 @@
     <!-- Launch the tf calibrator for IR ChemistEye 2 node -->
     <node name="ircameratwo_tf_broadcaster" pkg="chemist_eye" type="camera_ir_two_calibrator_tf.py" output="screen"/>
 
+
     <!-- Launch fire detection node -->
     <node name="fire_detection_node" pkg="chemist_eye" type="fire_detection.py" output="screen">
         <param name="MAX_TEMP" value="500"/>
         <param name="llm_model" value="llava:7b"/>
+        <param name="map_mode" value="2D"/> 
     </node>
    
     <!-- Launch the tf calibrator for ChemistEye 1 node -->
@@ -130,10 +132,17 @@
 
     <!-- Launch the detector node (camera one) -->
     <node name="dummy_llm_node" pkg="chemist_eye" type="dummy_llm.py" output="screen">
-        <param name="exp" value="ppe"/>   
+        <param name="exp" value="accident"/>   
         <param name="llm_model" value="llava:7b"/>
+        <param name="map_mode" value="2D"/> 
     </node>
 
+    <!-- Run 2Dmap node -->
+    <node name="twod_map" pkg="chemist_eye" type="tf_to_twod_node" output="screen">
+        <!-- Define the parameters -->
+        <param name="max_temperature" value="50.0" />
+        <param name="hazard_radius" value="2.5" />
+    </node>
      <!-- Launch Slack bot node -->
     <node name="slack_bot_node" pkg="chemist_eye" type="ros_slack.py" output="screen"/>
 

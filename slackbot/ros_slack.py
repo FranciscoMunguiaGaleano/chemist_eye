@@ -21,6 +21,7 @@ class EventNotifier:
         # Load Slack tokens from bot.ini
         config = configparser.ConfigParser()
         config.read("/home/francisco/catkin_ws/src/chemist_eye/config/bot.ini")
+        self.map_mode = rospy.get_param('~map_mode', '2D')
         #print(config.keys())
 
         self.app_token = config["KEYS"]["AppToken"]
@@ -36,7 +37,12 @@ class EventNotifier:
         self.latest_image = None
 
         # Subscribers
-        self.image_sub = rospy.Subscriber("/rviz_camera_view", Image, self.image_callback)
+        #self.image_sub = rospy.Subscriber("/rviz_camera_view", Image, self.image_callback)
+        # Decide which image topic to subscribe to
+        if self.map_mode == '2D':
+            rospy.Subscriber("/maptwo2", Image, self.image_callback)
+        else:
+            rospy.Subscriber("/rviz_camera_view", Image, self.image_callback)
         self.message_trigger_sub = rospy.Subscriber("/slack_messages_trigger", String, self.trigger_callback)
         self.event_description_sub = rospy.Subscriber("/slack_event_description", String, self.event_description_callback)
         
@@ -64,6 +70,7 @@ class EventNotifier:
         try:
             # Convert ROS Image message to OpenCV format
             cv_image = self.bridge.imgmsg_to_cv2(self.latest_image, desired_encoding="bgr8")
+            cv_image = cv2.resize(cv_image, (0, 0), fx=0.9, fy=0.9)
 
             # Save image to a temporary file
             temp_image_path = "/home/francisco/catkin_ws/src/chemist_eye/temp/event_image.jpg"

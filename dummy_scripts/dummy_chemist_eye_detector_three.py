@@ -89,7 +89,7 @@ class ExperimentsNode:
         tf_msg = TransformStamped()
         tf_msg.header.stamp = rospy.Time.now()
         tf_msg.header.frame_id = "camerathree_link"  # Parent frame
-        tf_msg.child_frame_id = f"human_{human_id}_frame"  # Unique frame for each person
+        tf_msg.child_frame_id = f"humanthree_{human_id}_frame"  # Unique frame for each person
 
         tf_msg.transform.translation.x = x
         tf_msg.transform.translation.y = -(1.3) / 2 + self.camera_height
@@ -137,7 +137,7 @@ class ExperimentsNode:
             B = 1.0
         # Create the cylinder (body)
         cylinder_marker = Marker()
-        cylinder_marker.header.frame_id = f"human_{human_id}_frame"
+        cylinder_marker.header.frame_id = f"humanthree_{human_id}_frame"
         cylinder_marker.header.stamp = rospy.Time.now()
         cylinder_marker.ns = f"human_markers_{human_id}"
         cylinder_marker.id = human_id * 3 +1  # Unique ID for each human (body)
@@ -156,7 +156,7 @@ class ExperimentsNode:
 
         # Create the sphere (head)
         sphere_marker = Marker()
-        sphere_marker.header.frame_id = f"human_{human_id}_frame"
+        sphere_marker.header.frame_id = f"humanthree_{human_id}_frame"
         sphere_marker.header.stamp = rospy.Time.now()
         sphere_marker.ns = f"human_markers_{human_id}"
         sphere_marker.id = human_id * 3 + 2  # Unique ID for each human (head)
@@ -175,7 +175,7 @@ class ExperimentsNode:
 
         # Create the shoulder markers (positioned above the body at shoulder level)
         shoulder_marker = Marker()
-        shoulder_marker.header.frame_id = f"human_{human_id}_frame"
+        shoulder_marker.header.frame_id = f"humanthree_{human_id}_frame"
         shoulder_marker.header.stamp = rospy.Time.now()
         shoulder_marker.ns = f"human_markers_{human_id}"
         shoulder_marker.id = human_id * 3 + 3  # Unique ID for each human (shoulder)

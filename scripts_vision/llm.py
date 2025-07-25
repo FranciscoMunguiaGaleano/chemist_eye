@@ -12,6 +12,7 @@ import time
 from ultralytics import YOLO
 import numpy as np
 from PIL import Image as PilImage
+import random
 
 IMGS_TEMP_1_PATH = os.path.join(os.path.dirname(__file__), '..', 'temp', 'imgone.jpg')
 IMGS_TEMP_2_PATH = os.path.join(os.path.dirname(__file__), '..', 'temp', 'imgtwo.jpg')
@@ -26,7 +27,12 @@ DATASET_GREEN_PPE = os.path.join(os.path.dirname(__file__), '..', 'temp/GREEN/PP
 DATASET_GREEN_NONPPE = os.path.join(os.path.dirname(__file__), '..', 'temp/GREEN/NONPPE')
 DATASET_PRONE = os.path.join(os.path.dirname(__file__), '..', 'temp/PRONE')
 DATASET_NONPRONE = os.path.join(os.path.dirname(__file__), '..', 'temp/NONPRONE')
+DATASET_STANDING = os.path.join(os.path.dirname(__file__), '..', 'temp/STANDING')
+DATASET_NOTSTANDING = os.path.join(os.path.dirname(__file__), '..', 'temp/NOTSTANDING')
+DATASET_PPE_NOT_CLASSIFIED = os.path.join(os.path.dirname(__file__), '..', 'temp/PPE_NOT_CLASSIFIED')
+DATASET_STANDING_NOT_CLASSIFIED = os.path.join(os.path.dirname(__file__), '..', 'temp/STANDING_NOT_CLASSIFIED')
 DETECTION_CONFIDENCE = 0.8
+
 
 class VLLMClassification():
     def __init__(self):
@@ -36,6 +42,7 @@ class VLLMClassification():
         self.ppe = rospy.get_param('~ppe', True)
         self.save_dataset = rospy.get_param('~datasetppe', "WHITE") # WHITE, BLUE, GREEN, GRAY
         self.produce_dataset = rospy.get_param('~producedataset', False) 
+        self.only_dataset = rospy.get_param('~onlydataset', False) 
         self.model = YOLO("yolov8n.pt", verbose=False)  # YOLOv8 nano model
         
         self.target_classes = [0]
@@ -71,6 +78,7 @@ class VLLMClassification():
             rospy.logerr(f"Error processing image three: {e}")
 
     def count_persons(self, img_path):
+        #return 1
         num_persons = 0
         try:
             if not os.path.exists(img_path):
@@ -117,11 +125,32 @@ class VLLMClassification():
 
         # Generate a unique filename with timestamp
         timestamp = time.strftime("%Y%m%d_%H%M%S")  # Format: YYYYMMDD_HHMMSS
+        if self.only_dataset and num_persons == 1:
+            if self.ppe:
+                if self.produce_dataset:
+                        ppe_img_path = os.path.join(DATASET_PPE_NOT_CLASSIFIED, f"ppe_{timestamp}.jpg")
+                        try:
+                            cv2.imwrite(ppe_img_path, cv2.imread(img_path))
+                        except Exception as e:
+                            rospy.loginfo(f"ppe_{timestamp}.jpg")
+                            rospy.loginfo(f"{prone_img_path}")
+                            rospy.loginfo(f"error here{e}")
+            if self.prone:
+                if self.produce_dataset:
+                        prone_img_path = os.path.join(DATASET_STANDING_NOT_CLASSIFIED, f"prone_{timestamp}.jpg")
+                        try:
+                            cv2.imwrite(prone_img_path, cv2.imread(img_path))
+                        except Exception as e:
+                            rospy.loginfo(f"prone_{timestamp}.jpg")
+                            rospy.loginfo(f"{prone_img_path}")
+                            rospy.loginfo(f"error here{e}")
+            return
+
 
         if num_persons == 1:
             # Check if the person is lying on the floor
             if self.prone:
-                query = 'Is there a person lying, kneeling, prone or on all fours on the ground? Only reply with yes or no.'
+                query = 'Is the person standing. Only reply with yes or no.'
                 answer = query_llm(img_path, query)
                 rospy.loginfo(f"LLM Response ({camera_name} - Serious Accident): {answer}")
 
@@ -130,12 +159,23 @@ class VLLMClassification():
                     rospy.loginfo(f"A person potentially accidented has been detected in the image from {camera_name}. Triggering emergency notification service.")
 
                     if self.produce_dataset:
-                        prone_img_path = os.path.join(DATASET_PRONE, f"prone_{timestamp}.jpg")
-                        cv2.imwrite(prone_img_path, cv2.imread(img_path))
+                        prone_img_path = os.path.join(DATASET_STANDING, f"nonprone_{timestamp}.jpg")
+                        try:
+                            cv2.imwrite(prone_img_path, cv2.imread(img_path))
+                        except Exception as e:
+                            rospy.loginfo(f"prone_{timestamp}.jpg")
+                            rospy.loginfo(f"{prone_img_path}")
+                            rospy.loginfo(f"error here{e}")
+
                 else:
                     if self.produce_dataset:
-                        nonprone_img_path = os.path.join(DATASET_NONPRONE, f"nonprone_{timestamp}.jpg")
-                        cv2.imwrite(nonprone_img_path, cv2.imread(img_path))
+                        nonprone_img_path = os.path.join(DATASET_NOTSTANDING, f"prone_{timestamp}.jpg")
+                        try:
+                            cv2.imwrite(nonprone_img_path, cv2.imread(img_path))
+                        except Exception as e:
+                            rospy.loginfo(f"prone_{timestamp}.jpg")
+                            rospy.loginfo(f"{prone_img_path}")
+                            rospy.loginfo(f"error here{e}")
 
             # Check if the person is wearing a lab coat
             if self.ppe:
@@ -316,8 +356,14 @@ if __name__ == '__main__':
         except Exception as e:
             rospy.loginfo(F"📸 Chemist eye not streaming error at the beginning: {e}")
         rate = rospy.Rate(0.1)  # 0.1 Hz (10 seconds interval)
+        # 2, 3, 5, 7, 11, 13, 17, 19, 23, 29
+        #time.sleep(1)
+        cameras = ["camera1", "camera2", "camera3"]
+        delays = [0.2, 0.3, 0.5, 0.7, 1.1, 1.9, 1.7, 2.3, 2.9]
         while not rospy.is_shutdown():
             try:
+                time.sleep(random.choice(delays))
+                node.chemist_eye = random.choice(cameras)
                 rospy.loginfo("Entering the deep seek here")
                 if node.image_one_latest is not None and (node.chemist_eye == 'camera1' or node.chemist_eye == 'all'):
                     cv2.imwrite(IMGS_TEMP_1_PATH, node.image_one_latest)

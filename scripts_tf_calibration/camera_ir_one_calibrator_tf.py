@@ -9,12 +9,15 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
 import yaml
+import random
 import sys
 import os
 
+LOCATIONS = [[-6.9, 13.57],[-6.9, 10.48],[-10.48, -10.48]]
 
 class GUI():
     def __init__(self):
+        self.mode = rospy.get_param('~rand_mode', False)
         self.root = tk.Tk()
         self.root.title('IR Camera one tf calibrator')
         self.root.geometry('450x180')
@@ -199,12 +202,22 @@ class GUI():
                 rotation = config_data['rotation']
 
                 # Set sliders based on loaded values
-                self.current_x.set(translation['x'] * self.precision)
-                self.current_y.set(translation['y'] * self.precision)
-                self.current_z.set(translation['z'] * self.precision)
-                self.current_pitch.set(rotation['pitch'] * self.precision)
-                self.current_yaw.set(rotation['yaw'] * self.precision)
-                self.current_roll.set(rotation['roll'] * self.precision)
+                if not self.mode:
+                    self.current_x.set(translation['x'] * self.precision)
+                    self.current_y.set(translation['y'] * self.precision)
+                    self.current_z.set(translation['z'] * self.precision)
+                    self.current_pitch.set(rotation['pitch'] * self.precision)
+                    self.current_yaw.set(rotation['yaw'] * self.precision)
+                    self.current_roll.set(rotation['roll'] * self.precision)
+                else:
+                    locations = random.sample(LOCATIONS,1)
+                    self.current_x.set((locations[0][0]) * self.precision)
+                    self.current_y.set((locations[0][1]) * self.precision)
+                    self.current_z.set(translation['z'] * self.precision)
+                    self.current_pitch.set(rotation['pitch'] * self.precision)
+                    self.current_yaw.set(rotation['yaw'] * self.precision)
+                    self.current_roll.set(rotation['roll'] * self.precision)
+
 
                 self.update_labels()
                 print(f"Loaded configuration from {config_path}")
