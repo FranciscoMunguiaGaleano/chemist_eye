@@ -29,12 +29,12 @@
 
     <!-- Launch fire detection node -->
     <node name="fire_detection_node" pkg="chemist_eye" type="fire_detection.py" output="screen">
-        <param name="MAX_TEMP" value="50"/>
-        <param name="llm_model" value="llava-phi3"/>
-        <param name="map_mode" value="2D"/>
-        <param name="exp_number" value="C1_E1_Fire"/>
-        <param name="c_mode" value="C1"/>
-        <param name="rand_mode" value="True"/>
+        <param name="MAX_TEMP" value="55"/>
+        <param name="llm_model" value="llava:7b"/>
+        <param name="map_mode" value="3D"/>
+        <param name="exp_number" value="C3_E1_Fire"/>
+        <param name="c_mode" value="C3"/>
+        <param name="rand_mode" value="False"/>
     </node>
    
     <!-- Launch the tf calibrator for ChemistEye 1 node -->
@@ -136,7 +136,7 @@
 
     <!-- Launch Slack bot node -->
     <node name="slack_bot_node" pkg="chemist_eye" type="ros_slack.py" output="screen">
-            <param name="map_mode" value="2D"/>
+            <param name="map_mode" value="3D"/>
     </node>
 
     <node name="dummy_llm_node" pkg="chemist_eye" type="dummy_llm.py" output="screen">
@@ -145,12 +145,12 @@
         <param name="crop_y" value="720"/>
         <param name="crop_width" value="1000"/>
         <param name="crop_height" value="850"/>
-        <param name="map_mode" value="2D"/>
+        <param name="map_mode" value="3D"/>
     </node>
     <!-- Run 2Dmap node -->
     <node name="twod_map" pkg="chemist_eye" type="tf_to_twod_node" output="screen">
     <!-- Define the parameters -->
-        <param name="max_temperature" value="50.0" />
+        <param name="max_temperature" value="10.0" />
         <param name="hazard_radius" value="2.5" />
     </node>
     

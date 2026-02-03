@@ -139,9 +139,9 @@
 
     <node name="dummy_llm_node" pkg="chemist_eye" type="dummy_llm.py" output="screen">
         <param name="exp" value="accident"/>  
-        <param name="llm_model" value="llava:7b"/>
-        <param name="exp_number" value="C1_E10"/>
-        <param name="c_mode" value="C1"/>
+        <param name="llm_model" value="llava-phi3"/>
+        <param name="exp_number" value="C3_E10"/>
+        <param name="c_mode" value="C3"/>
         <param name="crop_x" value="725"/>
         <param name="crop_y" value="720"/>
         <param name="crop_width" value="1000"/>
@@ -154,7 +154,4 @@
         <param name="max_temperature" value="500.0" />
         <param name="hazard_radius" value="2.5" />
     </node>
-
-    
-    
 </launch>

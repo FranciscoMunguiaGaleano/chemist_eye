@@ -18,7 +18,7 @@ from scipy.stats import norm
 
 BOUNDED_DISTANCE = 8.0
 CONFIG_FILE = '../config/cameraone_tf_conf.yaml'
-DETECTION_CONFIDENCE = 0.7
+DETECTION_CONFIDENCE = 0.6
 
 def call_chemisteyeone_speech_service():
     # Wait for the service to be available

@@ -41,9 +41,11 @@ private:
     float temp_one_ = 0.0;
     float temp_two_ = 0.0;
     float hazard_radius_ = 4.0f;  
-    float max_temp_ = 500.0f;  
+    float max_temp_ = 49.0f;  
+    bool temp_locked_ = false;
     ros::Subscriber color_sub1_, color_sub2_, color_sub3_;
     ros::Subscriber temp_sub1_, temp_sub2_;
+    
 };
 
 MapVisualizer::MapVisualizer(ros::NodeHandle& nh) {
@@ -62,8 +64,30 @@ void MapVisualizer::warningColorCallbackOne(const std_msgs::String::ConstPtr& ms
 void MapVisualizer::warningColorCallbackTwo(const std_msgs::String::ConstPtr& msg) { color_two_ = msg->data; }
 void MapVisualizer::warningColorCallbackThree(const std_msgs::String::ConstPtr& msg) { color_three_ = msg->data; }
 
-void MapVisualizer::temperatureCallbackOne(const std_msgs::Float32::ConstPtr& msg) { temp_one_ = msg->data; }
-void MapVisualizer::temperatureCallbackTwo(const std_msgs::Float32::ConstPtr& msg) { temp_two_ = msg->data; }
+void MapVisualizer::temperatureCallbackOne(const std_msgs::Float32::ConstPtr& msg) 
+{ 
+    if (!temp_locked_)
+    {
+        temp_one_ = msg->data; 
+    }
+    else
+    {
+        temp_one_ = max_temp_ + 1;
+        temp_two_ = max_temp_ + 1 ;
+    }
+}
+void MapVisualizer::temperatureCallbackTwo(const std_msgs::Float32::ConstPtr& msg) 
+{ 
+    if (!temp_locked_)
+    {
+    temp_two_ = msg->data; 
+    }
+    else
+    {
+        temp_one_ = max_temp_ + 1;
+        temp_two_ = max_temp_ + 1 ;
+    }
+}
 
 cv::Scalar MapVisualizer::getColorFromLabel(const std::string& label) {
     if (label == "red")    return cv::Scalar(0, 0, 255);
@@ -156,6 +180,7 @@ void MapVisualizer::drawMap(cv::Mat& map_image, double resolution,
                     cv::putText(map_image, "P3", cv::Point(x_px - 11, y_px + 12), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(255, 255, 255), 3);
             }
             else if (frame == "IR_camera_link" && temp_one_ > max_temp_) {
+                temp_locked_ = true;
                 fire_positions.push_back(cv::Point(x_px, y_px));
                 drawCircle(map_image, x_px, y_px, getColorFromTemperature(temp_one_));
             }
@@ -163,6 +188,7 @@ void MapVisualizer::drawMap(cv::Mat& map_image, double resolution,
                 drawCircle(map_image, x_px, y_px, getColorFromTemperature(temp_one_));
             }
             else if (frame == "IR_cameratwo_link" && temp_two_ > max_temp_) {
+                temp_locked_ = true;
                 fire_positions.push_back(cv::Point(x_px, y_px));
                 drawCircle(map_image, x_px, y_px, getColorFromTemperature(temp_two_));
             }

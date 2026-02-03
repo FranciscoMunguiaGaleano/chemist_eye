@@ -36,7 +36,7 @@ def extract_robot_numbers(text: str) -> Tuple[Optional[int], Optional[int], Opti
         return numbers[0] if numbers else None  # Return first number if exists, else None
     
     return tuple(get_number(match) for match in matches)
-
+    #return tuple(35, 0, 37)
 
 def call_chemisteyeone_speech_service():
     # Wait for the service to be available
@@ -580,6 +580,7 @@ class LlmDecisionMaker:
         self.image_pub.publish(msg)
 
     def query_llm(self, image_data, query):
+        return "ROBOT1: [34], ROBOT2: [32] ROBOT3: [28]"
         try:
             if image_data is not None:
                 rospy.loginfo(f"Querying LLM with image data of shape: {image_data.shape}")
@@ -600,6 +601,7 @@ class LlmDecisionMaker:
                 )
 
                 return response.get('message', {}).get('content', '').strip().upper()
+                
         except Exception as e:
             rospy.logerr(f"Error querying LLM: {e}")
             return None

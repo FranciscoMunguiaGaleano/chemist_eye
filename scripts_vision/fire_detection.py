@@ -295,7 +295,7 @@ class FireDetectionNode:
                     query = (
                     f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
                     f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
-                    f"Green dots represent possible robot navigation nodes, which are: {VALID_NODES}. "
+                    f"Green dots represent possible robot navigation nodes, which only available numbers to pick are: {VALID_NODES}. "
                     f"Blue and red circles mark areas of detected temperature; a potential fire has been detected. "
                     f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire. "
                     f"The nodes must be selected from the list provided above, and each robot should move to a unique node. "
@@ -306,7 +306,7 @@ class FireDetectionNode:
                     query = (
                     f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
                     f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map."
-                    f"Green dots represent possible robot navigation nodes, which are: {VALID_NODES}. "
+                    f"Green dots represent possible robot navigation nodes, which only available numbers to pick are: {VALID_NODES}. "
                     f"Blue and red spheres mark areas of detected temperature; a potential fire has been detected. "
                     f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire. "
                     f"The nodes must be selected from the list provided above, and each robot should move to a unique node. "
@@ -314,34 +314,35 @@ class FireDetectionNode:
                     f"Avoid assigning the same or nearby nodes to different robots."
                     f"The node number should be 0 when there is not necessity to move a robot.")
             if self.c_mode == 'C3':
+                time.sleep(10)
                 if self.map_mode == '2D':
                     query = (
                     f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
                     f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
-                    f"Green dots represent possible robot navigation nodes, which are: {self.available_nodes}. "
-                    f"Blue and red circles mark areas of detected temperature; a potential fire has been detected. "
-                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire. "
+                    f"Green dots represent possible robot navigation nodes. "
+                    f"Red circles mark areas of detected temperature; at the moment of this query, a potential fire has been detected. "
+                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire (RED CIRCLES). "
                     f"The nodes must be selected from the list provided above, and each robot should move to a unique node. "
-                    f"Respond in this exact format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
-                    f"Avoid assigning the same or nearby nodes to different robots."
+                    f"Respond in this exact format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers, the only available node numbers to pick are:: [{self.available_nodes}]."
+                    f"Avoid assigning the same nodes to different robots."
                     f"The node number should be 0 when there is not necessity to move a robot.")
                 else:
                     query = (
                     f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
                     f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map."
-                    f"Green dots represent possible robot navigation nodes, which are: {self.available_nodes}. "
-                    f"Blue and red spheres mark areas of detected temperature; a potential fire has been detected. "
-                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire. "
+                    f"Green dots represent possible robot navigation nodes."
+                    f"Red spheres mark areas of detected temperature; at the moment of this query, a potential fire has been detected. "
+                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the fire (RED SPHERES). "
                     f"The nodes must be selected from the list provided above, and each robot should move to a unique node. "
-                    f"Respond in this exact format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
-                    f"Avoid assigning the same or nearby nodes to different robots."
+                    f"Respond in this exact format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers, the only available node numbers to pick are: [{self.available_nodes}]. "
+                    f"Avoid assigning the same nodes to different robots."
                     f"The node number should be 0 when there is not necessity to move a robot.")
 
-            
+            rospy.loginfo(f"LLM Query: {query}")
             answer = self.query_llm(cv2.resize(self.latest_image, (0, 0), fx=0.9, fy=0.9), query)
             rospy.loginfo(f"LLM Response to serious accident: {answer}")
             nodes = extract_robot_numbers(answer)
-            rospy.loginfo(f'The node numbers are: {nodes}')
+            rospy.loginfo(f'The node numbers are: {nodes} from {self.available_nodes}')
             try:
                 rospy.loginfo(f'Kuka 1 should go to: {nodes[0]}')
                 rospy.loginfo(f'kuka 2 should go to: {nodes[1]}')
