@@ -436,6 +436,7 @@ class LlmDecisionMaker:
                                 rospy.loginfo(f'Kuka 1 should go to: {nodes[0]}')
                                 rospy.loginfo(f'kuka 2 should go to: {nodes[1]}')
                                 rospy.loginfo(f'Kuka 3 should go to: {nodes[2]}')
+                                
                             except:
                                 rospy.loginfo(f'Invalid locations')
                             #if nodes[0] is not None and nodes[1] is not None and nodes[2] is not None and nodes[0] in VALID_NODES and nodes[1] in VALID_NODES and nodes[2] in VALID_NODES:
@@ -447,6 +448,7 @@ class LlmDecisionMaker:
                                 self.control_robot_one_pub.publish(str(nodes[0]))
                                 self.control_robot_two_pub.publish(str(nodes[1]))
                                 self.control_robot_three_pub.publish(str(nodes[2]))
+                                #TODO Fix undesired collisions between robots following cross paths (add a planner to control what robot should move first)
                             time.sleep(90)
                             for i in range(0, 10):
                                 self.publish_screenshot()
@@ -580,7 +582,7 @@ class LlmDecisionMaker:
         self.image_pub.publish(msg)
 
     def query_llm(self, image_data, query):
-        return "ROBOT1: [34], ROBOT2: [32] ROBOT3: [28]"
+        # return "ROBOT1: [34], ROBOT2: [32] ROBOT3: [28]" #DEBUGGING LINE Uncomment when necessary
         try:
             if image_data is not None:
                 rospy.loginfo(f"Querying LLM with image data of shape: {image_data.shape}")
@@ -595,7 +597,7 @@ class LlmDecisionMaker:
                         {
                             'role': 'user',
                             'content': query,
-                            'images': [image_base64],  # ✅ Now passing base64 string instead of NumPy array
+                            'images': [image_base64],  
                         }
                     ],
                 )

@@ -1,5 +1,5 @@
 <launch>
-
+     <!-- Case Study 4 - Posture detection (Workers Accidents) and system reaction -->
     <!-- Run the Python script that calls chemist_eye_warning.bash (one) -->
     <node name="speech_service_one_launcher" pkg="chemist_eye" type="dummy_speech_service.py" output="screen"/>
     

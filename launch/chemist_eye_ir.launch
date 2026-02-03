@@ -10,7 +10,14 @@
     <node name="ircameratwo_tf_broadcaster" pkg="chemist_eye" type="camera_ir_two_calibrator_tf.py" output="screen"/>
 
     <!-- Launch fire detection node -->
-    <node name="fire_detection_node" pkg="chemist_eye" type="fire_detection.py" output="screen"/>
+    <node name="fire_detection_node" pkg="chemist_eye" type="fire_detection.py" output="screen">
+        <param name="MAX_TEMP" value="200"/>
+        <param name="llm_model" value="llava:7b"/>
+        <param name="map_mode" value="3D"/>
+        <param name="exp_number" value="C3_E1_Fire"/>
+        <param name="c_mode" value="C3"/>
+        <param name="rand_mode" value="False"/>
+    </node>
 
     <!-- Launch RViz -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find chemist_eye)/config/chemist_eye_ir.rviz" output="screen"/>

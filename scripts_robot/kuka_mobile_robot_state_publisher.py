@@ -68,6 +68,16 @@ COLOR_MAP = {
 
 PATH_COLOR = (1.0, 0.0, 1.0, 1.0)  # Pink
 
+def make_graph_bidirectional(graph):
+    for node in list(graph.keys()):
+        for neighbor, yaw in graph[node].items():
+            if neighbor not in graph:
+                graph[neighbor] = {}
+            if node not in graph[neighbor]:
+                graph[neighbor][node] = yaw
+
+make_graph_bidirectional(NODES_RELATIONSHIPS)
+
 class RobotNavigator:
     def __init__(self):
         rospy.init_node('mobile_base_tf_broadcaster')

@@ -53,8 +53,15 @@
     <!-- Load the map using the map_server -->
     <node pkg="map_server" type="map_server" name="map_server" args="$(find chemist_eye)/maps/ACL_map.yaml"/>
 
-    <!-- Launch llm node -->
-    <node name="llm_classificator_node" pkg="chemist_eye" type="llm.py" output="screen"/>
+    <!-- Launch llm node (Add dummy_llm.py node for navigation capabilities in simulation)-->
+    <node name="llm_classificator_node" pkg="chemist_eye" type="llm.py" output="screen">
+        <param name="chemist_eye" value="camera3"/>
+        <param name="ppe" value="True"/>
+        <param name="prone" value="True"/>
+        <param name="datasetppe" value="WHITE"/>
+        <param name="producedataset" value="False"/>
+        <param name="onlydataset" value="False"/>
+    </node>
 
 </launch>
 
