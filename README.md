@@ -36,6 +36,7 @@ Developed and validated in the **Autonomous Chemistry Laboratory (ACL)** at the 
   year={2025}
 }
 ```
+</details>
 
 ---
 
