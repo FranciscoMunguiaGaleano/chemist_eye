@@ -12,7 +12,17 @@ The system detects safety hazards such as:
 
 It then **reasons about the environment** using Vision Language Models (VLMs) and dynamically commands mobile robots to reposition, restrict movement, and notify personnel in real time.
 
-Developed and validated in the **Autonomous Chemistry Laboratory (ACL)** at the University of Liverpool.
+Developed and validated in the **Autonomous Chemistry Laboratory (ACL)** at the University of Liverpool. 
+
+Demo:
+
+https://www.youtube.com/watch?v=Ruk3M4lfYaw
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=Ruk3M4lfYaw">
+    <img src="http://img.youtube.com/vi/Ruk3M4lfYaw/0.jpg" alt="Chemist Eye Demo Video">
+  </a>
+</p>
 
 ---
 
