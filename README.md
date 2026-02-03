@@ -194,7 +194,7 @@ This will initialize:
 
 ## 🧪 Reproducing Case Studies
 
-The experiments presented in the paper can be reproduced using the following launch files:
+The simulation experiments presented in the paper can be reproduced using the following launch files:
 
 | Case Study                  | Launch File               |
 | --------------------------- | ------------------------- |
