@@ -214,7 +214,7 @@ roslaunch chemist_eye labcoat_exp.launch
 
 The Bag files can be found at: 
 
-👉 [https://github.com/FranciscoMunguiaGaleano/vlm_chemist_eye_benchmark](https://github.com/FranciscoMunguiaGaleano/vlm_chemist_eye_benchmark)
+👉 [https://doi.org/10.5281/zenodo.18482133](https://doi.org/10.5281/zenodo.18482133)
 
 ## 📊 Detection Benchmark
 
