@@ -103,6 +103,13 @@ class LlmDecisionMaker:
         time_stamp_limit_2 = 0
         time_stamp_limit_3 = 0
         self.camera_source = random.randint(1, 3)
+        self.ppe_violation_start = {
+            1: None,
+            2: None,
+            3: None
+        }
+        # configurable delay (minutes)
+        self.ppe_delay_minutes = rospy.get_param("~ppe_delay_minutes", 1.0)
 
         rate = rospy.Rate(10)  # Publish at 10Hz
         while not rospy.is_shutdown():
@@ -465,82 +472,140 @@ class LlmDecisionMaker:
                 time_stamp_limit_1 += 1
                 time_stamp_limit_2 += 1
                 time_stamp_limit_3 += 1
-
-
             if self.experiment == 'ppe':
-                if time_stamp_limit_1 <= time_stamp_limit_1_:
-                    self.warning_colour_one_pub.publish("gray")
-                else:
-                    if self.camera_source == 1: 
-                        rospy.loginfo(f"⚠️ A person has been detected not wearing PPE at ChemistEye 1 station for more than 10 minutes. ChemistEye is 🔊 issuing warnings and has frozen the robots to prevent any potential risks to the worker not complying with PPE requirements. Experiment[{self.llm_model}]: {self.exp_number}")
-                        for i in range(0,10):
-                            if self.camera_source == 1: 
+
+                # ---- CAMERA 1 ----
+                if self.camera_source == 1:
+                    ppe_missing = True   # The actual llm gives the logic here (this is for simulation)
+
+                    if ppe_missing:
+                        self.start_ppe_timer(1)
+
+                        if self.ppe_timer_expired(1, self.ppe_delay_minutes):
+                            rospy.loginfo(
+                                f"⚠️ PPE violation persisted for {self.ppe_delay_minutes} minutes at ChemistEye 1"
+                            )
+
+                            for _ in range(10):
                                 self.warning_colour_one_pub.publish("yellow")
-                            elif self.camera_source == 2:
+
+                            for _ in range(10):
+                                self.publish_screenshot()
+
+                            for _ in range(10):
+                                self.event_description_pub.publish(
+                                    f"⚠️ A person has been detected not wearing PPE at ChemistEye 1 "
+                                    f"for more than *{self.ppe_delay_minutes} minutes*. "
+                                    f"ChemistEye is 🔊 issuing warnings and freezing robots. "
+                                    f"Experiment[{self.llm_model}]: {self.exp_number}"
+                                )
+
+                            for _ in range(10):
+                                self.message_trigger_pub.publish("True")
+
+                            self.reset_ppe_timer(1)
+                    else:
+                        self.reset_ppe_timer(1)
+                        self.warning_colour_one_pub.publish("gray")
+
+
+                # ---- CAMERA 2 ----
+                if self.camera_source == 2:
+                    ppe_missing = True   # The actual llm gives the logic here (this is for simulation)
+
+                    if ppe_missing:
+                        self.start_ppe_timer(2)
+
+                        if self.ppe_timer_expired(2, self.ppe_delay_minutes):
+                            rospy.loginfo(
+                                f"⚠️ PPE violation persisted for {self.ppe_delay_minutes} minutes at ChemistEye 2"
+                            )
+
+                            for _ in range(10):
                                 self.warning_colour_two_pub.publish("yellow")
-                            else:
+
+                            for _ in range(10):
+                                self.publish_screenshot()
+
+                            for _ in range(10):
+                                self.event_description_pub.publish(
+                                    f"⚠️ A person has been detected not wearing PPE at ChemistEye 2 "
+                                    f"for more than *{self.ppe_delay_minutes} minutes*. "
+                                    f"ChemistEye is 🔊 issuing warnings and freezing robots. "
+                                    f"Experiment[{self.llm_model}]: {self.exp_number}"
+                                )
+
+                            for _ in range(10):
+                                self.message_trigger_pub.publish("True")
+
+                            self.reset_ppe_timer(2)
+                    else:
+                        self.reset_ppe_timer(2)
+                        self.warning_colour_two_pub.publish("gray")
+
+
+                # ---- CAMERA 3 ----
+                if self.camera_source == 3:
+                    ppe_missing = True   # The actual llm gives the logic here (this is for simulation)
+
+                    if ppe_missing:
+                        self.start_ppe_timer(3)
+
+                        if self.ppe_timer_expired(3, self.ppe_delay_minutes):
+                            rospy.loginfo(
+                                f"⚠️ PPE violation persisted for {self.ppe_delay_minutes} minutes at ChemistEye 3"
+                            )
+
+                            for _ in range(10):
                                 self.warning_colour_three_pub.publish("yellow")
-                        time.sleep(10)
-                        #Call warning
-                        #Notify incident
-                        for i in range(0, 10):
-                                    self.publish_screenshot()
-                        for i in range(0, 10):
-                                    self.event_description_pub.publish(f"⚠️ A person has been detected not wearing PPE at ChemistEye 1 station for more than *10 minutes*. ChemistEye is 🔊 issuing warnings and has frozen the robots to prevent any potential risks to the worker not complying with PPE requirements. Experiment[{self.llm_model}]: {self.exp_number}")
-                        for i in range(0, 10):
-                            self.message_trigger_pub.publish("True")
-                    time_stamp_limit_1 = 0
-                if time_stamp_limit_2 <= time_stamp_limit_2_:
-                    self.warning_colour_two_pub.publish("gray")
-                    #Call warning
-                else:
-                    if self.camera_source == 2: 
-                        rospy.loginfo(f"⚠️ A person has been detected not wearing PPE at ChemistEye 2 station for more than 10 minutes. ChemistEye is 🔊 issuing warnings and has frozen the robots to prevent any potential risks to the worker not complying with PPE requirements. Experiment[{self.llm_model}]: {self.exp_number}")
-                        for i in range(0,10):
-                            if self.camera_source == 1: 
-                                self.warning_colour_one_pub.publish("yellow")
-                            elif self.camera_source == 2:
-                                self.warning_colour_two_pub.publish("yellow")
-                            else:
-                                self.warning_colour_three_pub.publish("yellow")
-                        time.sleep(10)
-                        time.sleep(20)
-                        #Call warning
-                        #Notify incident
-                        for i in range(0, 10):
-                                    self.publish_screenshot()
-                        for i in range(0, 10):
-                                    self.event_description_pub.publish(f"⚠️ A person has been detected not wearing PPE at ChemistEye 2 station for more than *10 minutes*. ChemistEye is 🔊 issuing warnings and has frozen the robots to prevent any potential risks to the worker not complying with PPE requirements. Experiment[{self.llm_model}]: {self.exp_number}")
-                        for i in range(0, 10):
-                            self.message_trigger_pub.publish("True")
-                        time_stamp_limit_2 = 0
-                if time_stamp_limit_3 <= time_stamp_limit_3_:
-                    self.warning_colour_three_pub.publish("gray")
-                else:
-                    if self.camera_source == 3:
-                        rospy.loginfo(f"⚠️ A person has been detected not wearing PPE at ChemistEye 3 station for more than 10 minutes. ChemistEye is 🔊 issuing warnings and has frozen the robots to prevent any potential risks to the worker not complying with PPE requirements. Experiment[{self.llm_model}]: {self.exp_number}")
-                        for i in range(0,10):
-                            if self.camera_source == 1: 
-                                self.warning_colour_one_pub.publish("yellow")
-                            elif self.camera_source == 2:
-                                self.warning_colour_two_pub.publish("yellow")
-                            else:
-                                self.warning_colour_three_pub.publish("yellow")
-                        time.sleep(10)
-                        #Call warning
-                        for i in range(0, 10):
-                                    self.publish_screenshot()
-                        for i in range(0, 10):
-                                    self.event_description_pub.publish(f"⚠️ A person has been detected not wearing PPE at ChemistEye 3 station for more than *10 minutes*. ChemistEye is 🔊 issuing warnings and has frozen the robots to prevent any potential risks to the worker not complying with PPE requirements. Experiment[{self.llm_model}]: {self.exp_number}")
-                        for i in range(0, 10):
-                            self.message_trigger_pub.publish("True")
-                    time_stamp_limit_3 = 0
+
+                            for _ in range(10):
+                                self.publish_screenshot()
+
+                            for _ in range(10):
+                                self.event_description_pub.publish(
+                                    f"⚠️ A person has been detected not wearing PPE at ChemistEye 3 "
+                                    f"for more than *{self.ppe_delay_minutes} minutes*. "
+                                    f"ChemistEye is 🔊 issuing warnings and freezing robots. "
+                                    f"Experiment[{self.llm_model}]: {self.exp_number}"
+                                )
+
+                            for _ in range(10):
+                                self.message_trigger_pub.publish("True")
+
+                            self.reset_ppe_timer(3)
+                    else:
+                        self.reset_ppe_timer(3)
+                        self.warning_colour_three_pub.publish("gray")
+
             if self.experiment == 'fire':
                 self.publish_screenshot()
                 time_stamp_limit_1 += 1
                 time_stamp_limit_2 += 1
                 time_stamp_limit_3 += 1
             rate.sleep()
+
+    def start_ppe_timer(self, camera_id: int):
+        """Start PPE violation timer if not already running."""
+        if self.ppe_violation_start[camera_id] is None:
+            self.ppe_violation_start[camera_id] = rospy.Time.now()
+            rospy.loginfo(f"⏱ PPE timer started for camera {camera_id}")
+
+    def reset_ppe_timer(self, camera_id: int):
+        """Reset PPE violation timer (PPE is OK again)."""
+        if self.ppe_violation_start[camera_id] is not None:
+            rospy.loginfo(f"✅ PPE resolved for camera {camera_id}, timer reset")
+        self.ppe_violation_start[camera_id] = None
+
+    def ppe_timer_expired(self, camera_id: int, delay_minutes: float) -> bool:
+        """Check if PPE violation has lasted longer than delay_minutes."""
+        start_time = self.ppe_violation_start[camera_id]
+        if start_time is None:
+            return False
+
+        elapsed = (rospy.Time.now() - start_time).to_sec()
+        return elapsed >= delay_minutes * 60.0
+
     def available_nodes_callback(self, msg):
         try:
             self.available_nodes = msg.data
