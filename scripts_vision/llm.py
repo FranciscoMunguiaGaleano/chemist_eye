@@ -217,6 +217,7 @@ class VLLMClassification():
                 else:
                     rospy.loginfo(f"Lab coat not detected for the person in the image from {camera_name}. Triggering speech service.")
                     self.publish_marker_colours("yellow", camera_name)
+                    #TODO add again logic from dummy_lllm.py for adding the coundown feature to implement the time in deployment
                     call_speech_service(speech_service)
                     if self.produce_dataset:
                         if self.save_dataset == "WHITE":
