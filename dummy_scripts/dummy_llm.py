@@ -14,6 +14,7 @@ import base64
 from io import BytesIO
 import re
 from typing import Tuple, Optional
+import os
 
 
 CHEMIST_EYE_ONE_POSES = [[1, 1], [1, 2], [1, 3], [2, 1], [2, 2]]
@@ -473,10 +474,9 @@ class LlmDecisionMaker:
                 time_stamp_limit_2 += 1
                 time_stamp_limit_3 += 1
             if self.experiment == 'ppe':
-
                 # ---- CAMERA 1 ----
                 if self.camera_source == 1:
-                    ppe_missing = True   # The actual llm gives the logic here (this is for simulation)
+                    ppe_missing = True   # The actual llm gives the logic here (this is for just for simulation and benchmarking the decision making skills of chemist eye)
 
                     if ppe_missing:
                         self.start_ppe_timer(1)
@@ -546,8 +546,7 @@ class LlmDecisionMaker:
 
                 # ---- CAMERA 3 ----
                 if self.camera_source == 3:
-                    ppe_missing = True   # The actual llm gives the logic here (this is for simulation)
-
+                    ppe_missing = True   # The actual llm.py node gives the logic here (this is for simulation)
                     if ppe_missing:
                         self.start_ppe_timer(3)
 
@@ -672,6 +671,46 @@ class LlmDecisionMaker:
         except Exception as e:
             rospy.logerr(f"Error querying LLM: {e}")
             return None
+
+def call_speech_service(service_name):
+    rospy.wait_for_service(service_name)
+    try:
+        run_bash_script = rospy.ServiceProxy(service_name, RunBashScript)
+        response = run_bash_script()
+        if response.success:
+            rospy.loginfo(f"Speech service {service_name} executed successfully.")
+        else:
+            rospy.logwarn(f"Failed to execute {service_name}: {response.message}")
+    except rospy.ServiceException as e:
+        rospy.logerr(f"Service call failed: {e}")
+
+def query_llm(img_path, query, llm):
+    try:
+        if not os.path.exists(img_path):
+            print(f"Image file not found: {img_path}")
+            return None
+
+        with open(img_path, 'rb') as img_file:
+            image_data = img_file.read()
+            print(f"Querying LLM with image data of size: {len(image_data)} bytes")
+            #'llava-phi3:latest'
+            #'llama:7b'
+            # deepseek-r1:1.5b
+            response = ollama.chat(
+                model= llm,
+                messages=[
+                    {
+                        'role': 'user',
+                        'content': query,
+                        'images': [image_data],
+                    }
+                ],
+            )
+
+        return response.get('message', {}).get('content', '').strip().upper()
+    except Exception as e:
+        print(f"Error querying LLM: {e}")
+        return None
 
 if __name__ == "__main__":
     LlmDecisionMaker()

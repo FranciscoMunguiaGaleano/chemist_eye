@@ -62,6 +62,24 @@ class VLLMClassification():
         self.warning_colour_two_pub.publish("gray")
         self.warning_colour_three_pub = rospy.Publisher('camerathree/warning_color_topic', String, queue_size=10)  # Publish color data
         self.warning_colour_three_pub.publish("gray")
+        self.ppe_timers = {}
+        self.ppe_delay_minutes = rospy.get_param("~ppe_delay_minutes", 1.0)
+
+    def start_ppe_timer(self, camera_name):
+        if camera_name not in self.ppe_timers:
+            self.ppe_timers[camera_name] = rospy.Time.now()
+
+    def ppe_timer_expired(self, camera_name):
+        if camera_name not in self.ppe_timers:
+            return False
+
+        elapsed = (rospy.Time.now() - self.ppe_timers[camera_name]).to_sec()
+        return elapsed >= self.ppe_delay_minutes * 60
+    
+    def reset_ppe_timer(self, camera_name):
+        if camera_name in self.ppe_timers:
+            del self.ppe_timers[camera_name]
+
 
     def get_strict_yes_no_response(self, img_path, query, llm, max_retries=3):
         """
@@ -199,11 +217,10 @@ class VLLMClassification():
                 llm = "llava-phi3:latest"
                 q1 = "What is the person wearing?"
                 answer = query_llm(img_path, q1, llm)
-                
                 rospy.loginfo(f"LLM Response ({camera_name} - Wearing Lab coat): {answer}")
-
                 if "WHITE" in answer or "LAB COAT" in answer or "COAT" in answer:
                     self.publish_marker_colours("gray", camera_name)
+                    self.reset_ppe_timer(camera_name)
                     if self.produce_dataset:
                         if self.save_dataset == "WHITE":
                             save_path = os.path.join(DATASET_WHITE_PPE, f"ppe_{timestamp}.jpg")
@@ -215,100 +232,29 @@ class VLLMClassification():
                             save_path = os.path.join(DATASET_GRAY_PPE, f"ppe_{timestamp}.jpg")
                         cv2.imwrite(save_path, cv2.imread(img_path))
                 else:
-                    rospy.loginfo(f"Lab coat not detected for the person in the image from {camera_name}. Triggering speech service.")
+                    rospy.loginfo(f"Lab coat NOT detected at {camera_name}")
+                    # Start countdown
+                    self.start_ppe_timer(camera_name)
+                    # Soft warning while timer runs
                     self.publish_marker_colours("yellow", camera_name)
-                    #TODO add again logic from dummy_lllm.py for adding the coundown feature to implement the time in deployment
-                    call_speech_service(speech_service)
-                    if self.produce_dataset:
-                        if self.save_dataset == "WHITE":
-                            save_path = os.path.join(DATASET_WHITE_NONPPE, f"nonppe_{timestamp}.jpg")
-                        elif self.save_dataset == "BLUE":
-                            save_path = os.path.join(DATASET_BLUE_NONPPE, f"nonppe_{timestamp}.jpg")
-                        elif self.save_dataset == "GREEN":
-                            save_path = os.path.join(DATASET_GREEN_NONPPE, f"nonppe_{timestamp}.jpg")
-                        else:
-                            save_path = os.path.join(DATASET_GRAY_NONPPE, f"nonppe_{timestamp}.jpg")
-
-                        cv2.imwrite(save_path, cv2.imread(img_path))
-                
-                    
-    
-    def process_image(self, img_path, speech_service, camera_name):
-        rospy.loginfo(f"Processing image from {camera_name}")
-        num_persons = self.count_persons(img_path)
-        rospy.loginfo(f"Number of persons detected from {camera_name}: {num_persons}")
-        if num_persons == 1:
-            # Check if the person is lying on the floor
-            if self.prone:
-                llm = 'llava-phi3:latest'
-                q1 = 'What is the person doing? ONLY reply with YES or NO.'
-                answer = query_llm(img_path, query)
-                rospy.loginfo(f"LLM Response ({camera_name} - Serious Accident): {answer}")
-
-                answer = self.get_strict_yes_no_response(img_path, q1, llm)
-                if 'KNEELING' in answer or 'SITTING' in answer or 'CROUCHING' in answer or 'BENDING OVER' in answer or 'SQUATTING DOWN' in answer or 'LYING' in answer:
-                    self.publish_marker_colours("red", camera_name)
-                    rospy.loginfo(f"A person potentially accidented has been detected in the image from {camera_name}. Triggering emergency notification service.")
-                    rospy.loginfo(f"🚨 Accident detected")
-                   
-                elif 'WALKING' in answer or 'WALKS' in answer or 'STANDING' in answer or 'CHECKING' in answer or 'EXAMINING' in answer or 'LOOKING' in answer or 'WORKING' in answer:
-                    print('The person is standing or walking')
-                else:
-                    print(f"Ambiguous answer: {answer}")
-                    print("Warning: LLM gave ambiguous answer after retries. Defaulting to NO to avoid false positives.")
-                
-                #set markers as 1,1,1 (RGB)
-            # Check if the person is wearing lab coat
-            if self.ppe:
-                query = 'Is the person wearing lab coat? ONLY reply with YES or NO'
-                answer = query_llm(img_path, query)
-                rospy.loginfo(f"LLM Response ({camera_name} - Wearing Lab coat): {answer}")
-
-                if not answer or "NO" in answer:
-                    rospy.loginfo(f"Lab coat not detected for the person in the image from {camera_name}. Triggering speech service.")
-                    self.publish_marker_colours("yellow", camera_name)
-                    call_speech_service(speech_service)
-                    #set markers as yellow
-                    if self.produce_dataset:
-                        if self.save_dataset == "WHITE":
-                            # save img_path in DATASET_WHITE_NONPPE
-                            pass
-                        elif self.save_dataset == "BLUE":
-                            # save img_path in DATASET_BLUE_NONPPE
-                            pass
-                        elif self.save_dataset == "GREEN":
-                            # save img_path in DATASET_GREEN_NONPPE
-                            pass
-                        else:
-                            # save img_path in DATASET_GRAY_NONPPE
-                            pass
-                    
-                else:
-                    self.publish_marker_colours("gray", camera_name)
-                    if self.produce_dataset:
-                        if self.save_dataset == "WHITE":
-                            # save img_path in DATASET_WHITE_PPE
-                            pass
-                        elif self.save_dataset == "BLUE":
-                            # save img_path in DATASET_BLUE_PPE
-                            pass
-                        elif self.save_dataset == "GREEN":
-                            # save img_path in DATASET_GREEN_PPE
-                            pass
-                        else:
-                            # save img_path in DATASET_GRAY_PPE
-                            pass
-                #set markers as 1,1,1 (RGB)
-        elif num_persons > 1:
-            query = 'Are all the persons in the image wearing lab coat? Only reply with yes or no. DO NOT give  any further explanaitons'
-            answer = query_llm(img_path, query)
-            rospy.loginfo(f"LLM Response ({camera_name} - Wearing Lab coat): {answer}")
-
-            if not answer or "NO" in answer:
-                rospy.loginfo(f"Lab coats not detected for the persons in the image from {camera_name}. Triggering speech service.")
-                call_speech_service(speech_service)
-        else:
-            self.publish_marker_colours("gray", camera_name)
+                    if self.ppe_timer_expired(camera_name):
+                        rospy.loginfo(
+                            f"⚠️ PPE violation persisted for {self.ppe_delay_minutes} minutes at {camera_name}"
+                        )
+                        # escalate warning
+                        for _ in range(10):
+                                self.publish_screenshot()
+                        for _ in range(10):
+                            self.event_description_pub.publish(
+                                f"⚠️ A person has been detected not wearing PPE at ChemistEye 1 "
+                                f"for more than *{self.ppe_delay_minutes} minutes*. "
+                                f"ChemistEye is 🔊 issuing warnings and freezing robots. "
+                                f"Experiment[{self.llm_model}]: {self.exp_number}"
+                            )
+                        for _ in range(10):
+                            self.message_trigger_pub.publish("True")
+                        call_speech_service(speech_service)
+                        self.reset_ppe_timer(camera_name)
             
     def publish_marker_colours(self,colour, camera_name):
         if camera_name == 'Camera One':
@@ -320,6 +266,8 @@ class VLLMClassification():
         else:
             rospy.logerr("Not a valid camera.")
         return
+
+
 def call_speech_service(service_name):
     rospy.wait_for_service(service_name)
     try:
