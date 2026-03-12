@@ -5,7 +5,7 @@ import subprocess
 
 
 # Absolute path to the script
-bash_script = '/home/francisco/catkin_ws/src/chemist_eye/scripts/chemisteye_three_streamer.bash'
+bash_script = '/home/francisco/catkin_ws/src/chemist_eye/scripts_vision/chemisteye_three_streamer.bash'
 
 # Ensure the script is executable
 os.chmod(bash_script, 0o755)

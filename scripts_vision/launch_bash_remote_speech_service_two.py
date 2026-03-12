@@ -6,7 +6,7 @@ import rospy
 from chemist_eye.srv import RunBashScript, RunBashScriptResponse  # Adjust based on your package name
 
 # Path to the bash script
-BASH_SCRIPT_PATH = '/home/francisco/catkin_ws/src/chemist_eye/scripts/chemisteye_two_warning.bash'
+BASH_SCRIPT_PATH = '/home/francisco/catkin_ws/src/chemist_eye/scripts_vision/chemisteye_two_warning.bash'
 
 def run_bash_script(req):
     """
