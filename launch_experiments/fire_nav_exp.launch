@@ -8,13 +8,20 @@
 
     <!-- Run the Python script that calls chemist_eye_warning.bash (three) -->
     <node name="speech_service_three_launcher" pkg="chemist_eye" type="dummy_speech_service_three.py" output="screen"/>
-
+    
+    <!-- FIRE NODES -->
     <!-- Define a parameter for the bag file name -->
     <arg name="bag_ir_cameras" default="$(env HOME)/rosbags/ir_cameras_default_recording.bag"/>
 
     <!-- Play the specified bag file for IR cameras -->
     <node pkg="rosbag" type="play" name="rosbag_play" args="$(arg bag_ir_cameras) --clock"/>
 
+    <!-- Launch fire detection node -->
+    <node name="fire_detection_node" pkg="chemist_eye" type="fire_detection.py" output="screen">
+        <param name="MAX_TEMP" value="500"/>
+        <param name="llm_model" value="llava:7b"/>
+    </node>
+    <!-- ############################# -->
     <!-- Set YOLO_VERBOSE to False -->
     <env name="YOLO_VERBOSE" value="False" />
 
