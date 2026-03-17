@@ -1,7 +1,9 @@
 <launch>
 
-    <arg name="bag_name" default="$(env HOME)/rosbags/default_recording.bag"/>
-    
+    <arg name="bag_name" default="default_recording_cam1.bag"/>
+    <arg name="bag_dir" default="/media/francisco/New Volume/ROS_bags"/>
+
     <node pkg="rosbag" type="record" name="rosbag_record" output="screen" 
-          args="-O $(arg bag_name) /camera/color/image_raw /camera/depth/array"/>
+          args='-O "$(arg bag_dir)/$(arg bag_name)" /camera/color/image_raw /camera/depth/array'/>
+
 </launch>
