@@ -157,5 +157,8 @@
         <param name="max_temperature" value="50.0" />
         <param name="hazard_radius" value="2.5" />
     </node>
-    
+    <!-- Launch Slack bot node -->
+    <node name="slack_bot_node" pkg="chemist_eye" type="ros_slack.py" output="screen">
+            <param name="map_mode" value="3D"/>
+    </node>
 </launch>

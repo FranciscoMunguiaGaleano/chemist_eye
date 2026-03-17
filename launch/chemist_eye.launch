@@ -76,12 +76,17 @@
 
     <!-- Launch llm node (Add dummy_llm.py node for navigation capabilities in simulation)-->
     <node name="llm_classificator_node" pkg="chemist_eye" type="llm.py" output="screen">
-        <param name="chemist_eye" value="camera3"/>
+        <param name="chemist_eye" value="camera1"/>
         <param name="ppe" value="True"/>
-        <param name="prone" value="True"/>
+        <param name="prone" value="False"/>
         <param name="datasetppe" value="WHITE"/>
         <param name="producedataset" value="False"/>
         <param name="onlydataset" value="False"/>
+    </node>
+
+    <!-- Launch Slack bot node -->
+    <node name="slack_bot_node" pkg="chemist_eye" type="ros_slack.py" output="screen">
+            <param name="map_mode" value="3D"/>
     </node>
 
 </launch>

@@ -14,6 +14,7 @@ import numpy as np
 from PIL import Image as PilImage
 import random
 import base64
+import pyautogui
 
 IMGS_TEMP_1_PATH = os.path.join(os.path.dirname(__file__), '..', 'temp', 'imgone.jpg')
 IMGS_TEMP_2_PATH = os.path.join(os.path.dirname(__file__), '..', 'temp', 'imgtwo.jpg')
@@ -46,10 +47,20 @@ class VLLMClassification():
         self.save_dataset = rospy.get_param('~datasetppe', "WHITE") # WHITE, BLUE, GREEN, GRAY
         self.produce_dataset = rospy.get_param('~producedataset', False) 
         self.only_dataset = rospy.get_param('~onlydataset', False) 
+        # Load cropping parameters from ROS parameters or default values
+        self.x = rospy.get_param("~crop_x", 600)  # Default crop X position
+        self.y = rospy.get_param("~crop_y", 120)  # Default crop Y position
+        self.width = rospy.get_param("~crop_width", 1200)  # Default crop width
+        self.height = rospy.get_param("~crop_height", 850)  # Default crop height
         self.model = YOLO("yolov8n.pt", verbose=False)  # YOLOv8 nano model
+        self.exp_number = rospy.get_param('~exp_number', '1') 
+        self.llm_model = rospy.get_param('~llm_model', 'llava:7b') #'llava-phi3'
         
         self.target_classes = [0]
         self.bridge = CvBridge()
+
+        self.image_pub = rospy.Publisher("/rviz_camera_view", Image, queue_size=10)
+        rospy.Subscriber("/maptwo2", Image, self.simple_view_callback)
         self.image_one_latest = None
         self.image_two_latest = None
         self.image_three_latest = None
@@ -63,8 +74,62 @@ class VLLMClassification():
         self.warning_colour_three_pub = rospy.Publisher('camerathree/warning_color_topic', String, queue_size=10)  # Publish color data
         self.warning_colour_three_pub.publish("gray")
         self.ppe_timers = {}
-        self.ppe_delay_minutes = rospy.get_param("~ppe_delay_minutes", 1.0)
+        self.ppe_delay_minutes = rospy.get_param("~ppe_delay_minutes", 0.2)
 
+        self.control_robot_one_pub = rospy.Publisher('robot1/node', String, queue_size=10)  # Publish color data
+        self.control_robot_two_pub = rospy.Publisher('robot2/node', String, queue_size=10)  # Publish color data
+        self.control_robot_three_pub = rospy.Publisher('robot3/node', String, queue_size=10)  # Publish color data
+        self.message_trigger_pub = rospy.Publisher("/slack_messages_trigger", String, queue_size = 10)
+        self.message_trigger_pub.publish("False")
+        self.event_description_pub = rospy.Publisher("/slack_event_description", String, queue_size = 10)
+        self.event_description_pub.publish("No description available")
+        self.rviz_view = None
+        self.simple_view = None
+        # Subscribe to available nodes
+        self.available_nodes = []
+        rospy.Subscriber("/available_nodes", String, self.available_nodes_callback)
+
+    def available_nodes_callback(self, msg):
+        try:
+            self.available_nodes = msg.data
+            #rospy.loginfo(f"Updated available nodes: {self.available_nodes}")
+        except Exception as e:
+            rospy.logwarn(f"Failed to parse available nodes: {e}")
+
+    def simple_view_callback(self, msg):
+        """ Converts ROS Image message to OpenCV format and stores it. """
+        try:
+            self.simple_view = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")  # Convert to OpenCV image
+            #rospy.loginfo("Received an image and converted it successfully.")
+        except Exception as e:
+            rospy.logerr(f"Error converting ROS Image to OpenCV: {e}")
+
+    def crop_image(self, image):
+        """Crops the image using defined x, y, width, and height."""
+        h, w, _ = image.shape
+
+        # Ensure crop dimensions are within bounds
+        x1 = max(0, min(self.x, w))
+        y1 = max(0, min(self.y, h))
+        x2 = max(0, min(self.x + self.width, w))
+        y2 = max(0, min(self.y + self.height, h))
+
+        return image[y1:y2, x1:x2]
+
+    def publish_screenshot(self):
+        # Capture the full screen
+        screenshot = pyautogui.screenshot()
+        frame = np.array(screenshot)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        # Crop the image
+        cropped_frame = self.crop_image(frame)
+        self.rviz_view = cropped_frame.copy()
+
+        # Publish as a ROS Image message
+        msg = self.bridge.cv2_to_imgmsg(cropped_frame, encoding="bgr8")
+        self.image_pub.publish(msg)
+    
     def start_ppe_timer(self, camera_name):
         if camera_name not in self.ppe_timers:
             self.ppe_timers[camera_name] = rospy.Time.now()
@@ -233,6 +298,7 @@ class VLLMClassification():
                         cv2.imwrite(save_path, cv2.imread(img_path))
                 else:
                     rospy.loginfo(f"Lab coat NOT detected at {camera_name}")
+                    call_speech_service(speech_service)
                     # Start countdown
                     self.start_ppe_timer(camera_name)
                     # Soft warning while timer runs
@@ -243,7 +309,7 @@ class VLLMClassification():
                         )
                         # escalate warning
                         for _ in range(10):
-                                self.publish_screenshot()
+                            self.publish_screenshot()
                         for _ in range(10):
                             self.event_description_pub.publish(
                                 f"⚠️ A person has been detected not wearing PPE at ChemistEye 1 "
@@ -253,7 +319,6 @@ class VLLMClassification():
                             )
                         for _ in range(10):
                             self.message_trigger_pub.publish("True")
-                        call_speech_service(speech_service)
                         self.reset_ppe_timer(camera_name)
             
     def publish_marker_colours(self,colour, camera_name):
@@ -322,6 +387,7 @@ if __name__ == '__main__':
         delays = [0.2, 0.3, 0.5, 0.7, 1.1, 1.9, 1.7, 2.3, 2.9]
         while not rospy.is_shutdown():
             try:
+                node.publish_screenshot()
                 time.sleep(random.choice(delays))
                 #node.chemist_eye = random.choice(cameras)
                 rospy.loginfo("Entering the deep seek here")
