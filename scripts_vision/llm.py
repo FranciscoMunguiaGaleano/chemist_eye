@@ -348,6 +348,18 @@ def call_speech_service(service_name):
     except rospy.ServiceException as e:
         rospy.logerr(f"Service call failed: {e}")
 
+def call_fire_warning_service(service_name):
+    rospy.wait_for_service(service_name)
+    try:
+        run_bash_script = rospy.ServiceProxy(service_name, RunBashScript)
+        response = run_bash_script()
+        if response.success:
+            rospy.loginfo(f"Fire warning service {service_name} executed successfully.")
+        else:
+            rospy.logwarn(f"Failed to execute {service_name}: {response.message}")
+    except rospy.ServiceException as e:
+        rospy.logerr(f"Service call failed: {e}")
+
     
 def query_llm(img_path, query, llm):
     try:
@@ -391,7 +403,10 @@ if __name__ == '__main__':
         while not rospy.is_shutdown():
             try:
                 node.publish_screenshot()
-                time.sleep(random.choice(delays))
+                #call_fire_warning_service('/run_fire_warning_service_one')
+                #call_fire_warning_service('/run_fire_warning_service_two')
+                #call_fire_warning_service('/run_fire_warning_service_three')
+                #time.sleep(random.choice(delays)) This is to be used when generating a dataset with the VLM
                 #node.chemist_eye = random.choice(cameras)
                 rospy.loginfo("Entering the deep seek here")
                 if node.image_one_latest is not None and (node.chemist_eye == 'camera1' or node.chemist_eye == 'all'):

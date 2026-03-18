@@ -2,6 +2,7 @@
 import rospy
 from std_msgs.msg import Float32, String
 from visualization_msgs.msg import Marker
+from chemist_eye.srv import RunBashScript 
 from sensor_msgs.msg import Image
 import random
 import ollama
@@ -13,10 +14,23 @@ import re
 from typing import Tuple, Optional
 from cv_bridge import CvBridge
 import random
+import threading
 
 MAX_TEMPERATURE = 200  # Maximum threshold for fire detection
 VALID_NODES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 22, 24, 25, 26, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39]  # Valid node numbers
 
+
+def call_fire_warning_service(service_name):
+    rospy.wait_for_service(service_name)
+    try:
+        run_bash_script = rospy.ServiceProxy(service_name, RunBashScript)
+        response = run_bash_script()
+        if response.success:
+            rospy.loginfo(f"Fire warning service {service_name} executed successfully.")
+        else:
+            rospy.logwarn(f"Failed to execute {service_name}: {response.message}")
+    except rospy.ServiceException as e:
+        rospy.logerr(f"Service call failed: {e}")
 
 def extract_robot_numbers(text: str) -> Tuple[Optional[int], Optional[int], Optional[int]]:
     # Regex to match numbers inside brackets or standalone numbers after "ROBOTx:"
@@ -43,6 +57,8 @@ class FireDetectionNode:
         self.c_mode = rospy.get_param('~c_mode', 'C1') # Condition mode C1, C2, C3
         self.exp_number = rospy.get_param('~exp_number', '1') 
         self.rand_mode = rospy.get_param('~rand_mode', False)
+        self.relocate_robots = rospy.get_param('~relocate_robots', False)
+        self.fire_warning_audio = rospy.get_param('~fire_warning_audio', True)
         self.random_sample = random.sample([1, 2], 1)
 
         # Decide which image topic to subscribe to
@@ -89,6 +105,8 @@ class FireDetectionNode:
         self.temp1 = 0
         self.temp2 = 0
         self.freeze_temp = False
+        self.fire_active = False
+        self.alarm_thread = None
         rospy.loginfo("🔥 Fire detection node started. Monitoring temperature with RViz markers...")
         while not rospy.is_shutdown():
             if not self.rand_mode:
@@ -98,8 +116,15 @@ class FireDetectionNode:
                         self.warning_colour_one_pub.publish("yellow")
                         self.warning_colour_two_pub.publish("yellow")
                         self.warning_colour_three_pub.publish("yellow")
-                        time.sleep(0.1)
+                        rospy.sleep(0.1)
                     rospy.loginfo(f"🔥 Potential fire detected! Temperature exceeded {self.max_temp}°C!")
+                    if self.fire_warning_audio:
+                        if not self.fire_active:
+                            self.fire_active = True
+                            if self.alarm_thread is None or not self.alarm_thread.is_alive():
+                                self.alarm_thread = threading.Thread(target=self.alarm_loop)
+                                self.alarm_thread.daemon = True
+                                self.alarm_thread.start()
                     self.handle_fire_detection()
             else:
                 if self.random_sample == 1:
@@ -109,8 +134,15 @@ class FireDetectionNode:
                             self.warning_colour_one_pub.publish("yellow")
                             self.warning_colour_two_pub.publish("yellow")
                             self.warning_colour_three_pub.publish("yellow")
-                            time.sleep(0.1)
+                            rospy.sleep(0.1)
                         rospy.loginfo(f"🔥 Potential fire detected! Temperature exceeded {self.max_temp}°C!")
+                        if self.fire_warning_audio:
+                            if not self.fire_active:
+                                self.fire_active = True
+                                if self.alarm_thread is None or not self.alarm_thread.is_alive():
+                                    self.alarm_thread = threading.Thread(target=self.alarm_loop)
+                                    self.alarm_thread.daemon = True
+                                    self.alarm_thread.start()
                         self.handle_fire_detection()
                 else:
                     if self.temp2*1>self.max_temp:
@@ -119,10 +151,32 @@ class FireDetectionNode:
                             self.warning_colour_one_pub.publish("yellow")
                             self.warning_colour_two_pub.publish("yellow")
                             self.warning_colour_three_pub.publish("yellow")
-                            time.sleep(0.1)
+                            rospy.sleep(0.1)
                         rospy.loginfo(f"🔥 Potential fire detected! Temperature exceeded {self.max_temp}°C!")
+                        if self.fire_warning_audio:
+                            if not self.fire_active:
+                                self.fire_active = True
+                                if self.alarm_thread is None or not self.alarm_thread.is_alive():
+                                    self.alarm_thread = threading.Thread(target=self.alarm_loop)
+                                    self.alarm_thread.daemon = True
+                                    self.alarm_thread.start()
                         self.handle_fire_detection()
-    
+                if self.fire_active and self.temp1 <= self.max_temp and self.temp2 <= self.max_temp:
+                    rospy.loginfo("🟢 No Fire Detected")
+                    self.fire_active = False
+
+    def alarm_loop(self):
+        rospy.loginfo("🚨 Alarm thread started")
+        rate = rospy.Rate(1)  # 1 Hz (once per second)
+
+        while self.fire_active and not rospy.is_shutdown():
+            if self.fire_warning_audio:
+                call_fire_warning_service('/run_fire_warning_service_one')
+                call_fire_warning_service('/run_fire_warning_service_two')
+                call_fire_warning_service('/run_fire_warning_service_three')
+            rate.sleep()
+        rospy.loginfo("✅ Alarm thread stopped")
+
     def available_nodes_callback(self, msg):
         try:
             self.available_nodes = msg.data
@@ -266,6 +320,8 @@ class FireDetectionNode:
 
     def handle_fire_detection(self):
         """ Handles actions when a fire is detected. """
+        if not self.relocate_robots:
+            return
         while True:
             if self.c_mode == 'C1':
                 if self.map_mode == '2D':

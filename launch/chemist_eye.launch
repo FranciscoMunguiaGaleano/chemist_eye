@@ -6,7 +6,16 @@
 
     <!-- Set YOLO_VERBOSE to False -->
     <env name="YOLO_VERBOSE" value="False" />
+
+    <!-- Run the Python script that calls chemist_eye_fire_warning.bash (one) -->
+    <node name="fire_warning_service_one_launcher" pkg="chemist_eye" type="launch_bash_remote_fire_warning_service.py" output="screen"/>
     
+    <!-- Run the Python script that calls chemist_eye_fire_warning.bash (two) -->
+    <node name="fire_warning_service_two_launcher" pkg="chemist_eye" type="launch_bash_remote_fire_warning_service_two.py" output="screen"/>
+    
+    <!-- Run the Python script that calls chemist_eye_fire_warning.bash (three) -->
+    <node name="fire_warning_service_three_launcher" pkg="chemist_eye" type="launch_bash_remote_fire_warning_service_three.py" output="screen"/>
+
     <!-- Run the Python script that calls chemist_eye_warning.bash (one) -->
     <node name="speech_service_one_launcher" pkg="chemist_eye" type="launch_bash_remote_speech_service.py" output="screen"/>
     
@@ -24,6 +33,21 @@
 
     <!-- Define a parameter for the bag file name -->
     <arg name="bag_ir_cameras" default="$(env HOME)/rosbags/ir_cameras_default_recording.bag"/>
+    <!-- Launch fire detection node -->
+    <node name="fire_detection_node" pkg="chemist_eye" type="fire_detection.py" output="screen">
+        <param name="MAX_TEMP" value="50"/>
+        <param name="llm_model" value="llava:7b"/>
+        <param name="relotace_robots" value="False"/>
+        <param name="fire_warning_audio" value="False"/>
+    </node>
+    <!-- Launch the tf calibrator for IR ChemistEye 1 node -->
+    <node name="ircameraone_tf_broadcaster" pkg="chemist_eye" type="camera_ir_one_calibrator_tf.py" output="screen">
+        <param name="rand_mode" value="True"/>
+    </node>
+    <!-- Launch the tf calibrator for IR ChemistEye 2 node -->
+    <node name="ircameratwo_tf_broadcaster" pkg="chemist_eye" type="camera_ir_two_calibrator_tf.py" output="screen">
+        <param name="rand_mode" value="True"/>
+    </node>
 
     <!-- Play the specified bag file for IR cameras -->
     <node pkg="rosbag" type="play" name="rosbag_play" args="$(arg bag_ir_cameras) --clock"/>
@@ -82,6 +106,7 @@
         <param name="datasetppe" value="WHITE"/>
         <param name="producedataset" value="False"/>
         <param name="onlydataset" value="False"/>
+        <param name="ppe_delay_minutes" value="5"/>
     </node>
 
     <!-- Launch Slack bot node -->
