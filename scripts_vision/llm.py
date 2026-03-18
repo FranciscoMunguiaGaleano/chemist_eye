@@ -320,6 +320,9 @@ class VLLMClassification():
                         for _ in range(10):
                             self.message_trigger_pub.publish("True")
                         self.reset_ppe_timer(camera_name)
+        ###TODO add logic for more than one person in the frame
+        ### Crop images, ask the llm one by one the same question as above.
+        ### All users close to that user meeple will change colour to Yellow,
             
     def publish_marker_colours(self,colour, camera_name):
         if camera_name == 'Camera One':

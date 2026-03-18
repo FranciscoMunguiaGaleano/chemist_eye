@@ -9,9 +9,9 @@
     <!-- Run the Python script that calls chemist_eye_warning.bash (three) -->
     <node name="speech_service_three_launcher" pkg="chemist_eye" type="dummy_speech_service_three.py" output="screen"/>
 
-    <arg name="bag_name_camera1" default="/media/francisco/New\ Volume/ROS_bags/default_recording_cam1.bag"/>
-    <arg name="bag_name_camera2" default="$(env HOME)/rosbags/camera2_labcoat.bag"/>
-    <arg name="bag_name_camera3" default="$(env HOME)/rosbags/camera3_labcoat.bag"/>
+    <arg name="bag_name_camera1" default="/media/francisco/New\ Volume/ROS_bags/ready/test.bag"/>
+    <arg name="bag_name_camera2" default="/media/francisco/New\ Volume/ROS_bags/ready/test22.bag"/>
+    <arg name="bag_name_camera3" default="/media/francisco/New\ Volume/ROS_bags/ready/test33.bag"/>
 
     <node pkg="rosbag" type="play" name="player1" args="--loop $(arg bag_name_camera1)"/>
     <node pkg="rosbag" type="play" name="player2" args="--loop $(arg bag_name_camera2)"/>
