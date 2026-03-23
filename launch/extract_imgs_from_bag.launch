@@ -1,0 +1,31 @@
+<launch>
+    <!-- Launch rviz -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find chemist_eye)/config/bags.rviz" output="screen">
+        <param name="args" value="2>/dev/null"/>
+    </node>
+    <!-- Reproduce bags -->
+    <!-- available bags: -->
+    <!-- ppe_multiple_people_cam1_1 -->
+    <!-- ppe_multiple_people_cam1_2 -->
+    <!-- ppe_multiple_people_cam2_1 -->
+    <!-- ppe_multiple_people_cam2_2 -->
+    <!-- accidents_multiple_people_cam1 -->
+    <!-- accidents_multiple_people_cam2 -->
+    <arg name="bag_name_camera1" default="/media/francisco/New\ Volume/ROS_bags/accident/accidents_multiple_people_cam1.bag"/>
+    <arg name="bag_name_camera2" default="/media/francisco/New\ Volume/ROS_bags/accident/accidents_multiple_people_cam2.bag"/>
+    <node pkg="rosbag" type="play" name="player1" args="--loop $(arg bag_name_camera1)"/>
+    <node pkg="rosbag" type="play" name="player2" args="--loop $(arg bag_name_camera2)"/>
+    <!-- Random image saver node -->
+    <node pkg="chemist_eye"
+        type="random_image_saver.py"
+        name="random_image_saver"
+        output="screen">
+        <!-- Parameters -->
+        <param name="save_path" value="/media/francisco/New Volume/ROS_bags/raw_imgs"/>
+        <param name="image_prefix" value="PRONE_"/>
+        <param name="camera" value="2"/> <!-- 1 or 2 -->
+
+    </node>
+
+
+</launch>

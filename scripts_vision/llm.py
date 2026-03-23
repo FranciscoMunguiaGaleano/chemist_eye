@@ -218,6 +218,7 @@ class VLLMClassification():
             rospy.logerr(f"Error querying YOLO: {e}")
             return num_persons
     def process_image_ds(self, img_path, speech_service, camera_name):
+        self.publish_screenshot()
         rospy.loginfo(f"Processing image from {camera_name}")
 
         num_persons = self.count_persons(img_path)
@@ -250,6 +251,7 @@ class VLLMClassification():
         if num_persons == 1:
             # Check if the person is lying on the floor
             if self.prone:
+                self.publish_screenshot()
                 llm = 'llava-phi3:latest'
                 q1 = 'What is the person doing?'
                 answer = query_llm(img_path, q1, llm)
@@ -262,7 +264,15 @@ class VLLMClassification():
                             self.warning_colour_two_pub.publish("red")
                         else:
                             self.warning_colour_three_pub.publish("red")
-                    rospy.loginfo(f"A person potentially accidented has been detected in the image from {camera_name}. Triggering emergency notification service.")
+                    rospy.loginfo(f":rotating_light: A potential worker accident has been detected in the image from {camera_name}. Triggering emergency notification service.")
+                    for _ in range(10):
+                            self.publish_screenshot()
+                    for _ in range(10):
+                        self.event_description_pub.publish(
+                            f":rotating_light: A potential worker accident has been detected in the image from {camera_name}. Triggering emergency notification service.")
+                    for _ in range(10):
+                        self.message_trigger_pub.publish("True")
+                    self.reset_ppe_timer(camera_name)
                 elif 'WALKING' in answer or 'WALKS' in answer or 'STANDING' in answer or 'CHECKING' in answer or 'EXAMINING' in answer or 'LOOKING' in answer or 'WORKING' in answer:
                     print('The person is standing or walking')
                 else:
@@ -279,6 +289,7 @@ class VLLMClassification():
 
             # Check if the person is wearing a lab coat
             if self.ppe:
+                self.publish_screenshot()
                 llm = "llava-phi3:latest"
                 q1 = "What is the person wearing?"
                 answer = query_llm(img_path, q1, llm)

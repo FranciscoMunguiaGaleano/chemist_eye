@@ -1,0 +1,705 @@
+#!/usr/bin/env python3
+import rospy
+import cv2
+import numpy as np
+import pyautogui
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+from std_msgs.msg import String
+from chemist_eye.srv import RunBashScript  
+import random
+from openai import OpenAI
+import time
+import base64
+from io import BytesIO
+import re
+from typing import Tuple, Optional
+import os
+
+
+CHEMIST_EYE_ONE_POSES = [[1, 1], [1, 2], [1, 3], [2, 1], [2, 2]]
+CHEMIST_EYE_TWO_POSES = [[1, 1], [1, 2], [1, 3], [2, 1], [2, 2]]
+CHEMIST_EYE_THREE_POSES = [[1, 1], [1, 2], [1, 3], [2, 1], [2, 2]]
+VALID_NODES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ,12, 13, 15, 16,17, 18, 19, 20, 22, 24, 25, 26, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39]
+
+def extract_robot_numbers(text: str) -> Tuple[Optional[int], Optional[int], Optional[int]]:
+    # Regex to match numbers inside brackets or standalone numbers after "ROBOTx:"
+    patterns = [r"ROBOT1: \[?(\d+(?:,\s*\d+)*)\]?", 
+                r"ROBOT2: \[?(\d+(?:,\s*\d+)*)\]?", 
+                r"ROBOT3: \[?(\d+(?:,\s*\d+)*)\]?"]
+    
+    matches = [re.search(pattern, text, re.DOTALL) for pattern in patterns]
+    
+    def get_number(match: Optional[re.Match]) -> Optional[int]:
+        if not match:
+            return None
+        numbers = list(map(int, re.findall(r'\d+', match.group(1))))  # Extract all numbers
+        return numbers[0] if numbers else None  # Return first number if exists, else None
+    
+    return tuple(get_number(match) for match in matches)
+    #return tuple(35, 0, 37)
+
+def call_chemisteyeone_speech_service():
+    # Wait for the service to be available
+    rospy.wait_for_service('/run_speech_service_one')  # Make sure the service is available
+
+    try:
+        # Create a service proxy to call the service
+        run_bash_script = rospy.ServiceProxy('/run_speech_service_one', RunBashScript)
+        
+        # Call the service and store the response
+        response = run_bash_script()
+
+        # Print the result
+        if response.success:
+            rospy.loginfo("Speech service one executed successfully.")
+        else:
+            rospy.logwarn(f"Failed to execute speech service one: {response.message}")
+    
+    except rospy.ServiceException as e:
+        rospy.logerr(f"Service call failed: {e}")
+
+class LlmDecisionMaker:
+    def __init__(self):
+        rospy.init_node('rviz_camera_publisher', anonymous=True)
+        self.experiment = rospy.get_param('~exp', 'fire')
+        self.map_mode = rospy.get_param('~map_mode', '3D')  # default to 3D
+        self.c_mode = rospy.get_param('~c_mode', 'C1') # Condition mode C1, C2, C3
+        self.exp_number = rospy.get_param('~exp_number', '1') 
+        self.llm_model = rospy.get_param('~llm_model', 'llava:7b') #'llava-phi3'
+        self.bridge = CvBridge()
+        self.image_pub = rospy.Publisher("/rviz_camera_view", Image, queue_size=10)
+        rospy.Subscriber("/maptwo2", Image, self.simple_view_callback)
+        self.warning_colour_one_pub = rospy.Publisher('cameraone/warning_color_topic', String, queue_size=10)  # Publish color data
+        self.warning_colour_one_pub.publish("red")
+        self.warning_colour_two_pub = rospy.Publisher('cameratwo/warning_color_topic', String, queue_size=10)  # Publish color data
+        self.warning_colour_two_pub.publish("gray")
+        self.warning_colour_three_pub = rospy.Publisher('camerathree/warning_color_topic', String, queue_size=10)  # Publish color data
+        self.warning_colour_three_pub.publish("gray")
+        self.control_robot_one_pub = rospy.Publisher('robot1/node', String, queue_size=10)  # Publish color data
+        self.control_robot_two_pub = rospy.Publisher('robot2/node', String, queue_size=10)  # Publish color data
+        self.control_robot_three_pub = rospy.Publisher('robot3/node', String, queue_size=10)  # Publish color data
+        self.message_trigger_pub = rospy.Publisher("/slack_messages_trigger", String, queue_size = 10)
+        self.message_trigger_pub.publish("False")
+        self.event_description_pub = rospy.Publisher("/slack_event_description", String, queue_size = 10)
+        self.event_description_pub.publish("No description available")
+        self.rviz_view = None
+        self.simple_view = None
+        # Subscribe to available nodes
+        self.available_nodes = []
+        rospy.Subscriber("/available_nodes", String, self.available_nodes_callback)
+
+        # Load cropping parameters from ROS parameters or default values
+        self.x = rospy.get_param("~crop_x", 600)  # Default crop X position
+        self.y = rospy.get_param("~crop_y", 120)  # Default crop Y position
+        self.width = rospy.get_param("~crop_width", 1200)  # Default crop width
+        self.height = rospy.get_param("~crop_height", 850)  # Default crop height
+
+        #random.seed(22)
+        
+        time_stamp_limit_1_ = random.randint(100,160)
+        time_stamp_limit_2_ = random.randint(200,300)
+        time_stamp_limit_3_ = random.randint(150,160)
+        time_stamp_limit_1 = 0
+        time_stamp_limit_2 = 0
+        time_stamp_limit_3 = 0
+        self.camera_source = random.randint(1, 3)
+        self.ppe_violation_start = {
+            1: None,
+            2: None,
+            3: None
+        }
+        # configurable delay (minutes)
+        self.ppe_delay_minutes = rospy.get_param("~ppe_delay_minutes", 1.0)
+
+        #API key
+        self.client = OpenAI(api_key=os.getenv("CHEMIST_EYE_OPEN_AI_API_KEY"))
+
+        rate = rospy.Rate(10)  # Publish at 10Hz
+        while not rospy.is_shutdown():
+            self.publish_screenshot()
+            if self.experiment == 'accident':
+                if time_stamp_limit_1 <= time_stamp_limit_1_:
+                    self.warning_colour_one_pub.publish("gray")
+                else:
+                    if self.camera_source == 1:
+                        rospy.loginfo(f"🚨 Accident detected")
+                        for i in range(0,10):
+                            if self.camera_source == 1: 
+                                self.warning_colour_one_pub.publish("red")
+                            elif self.camera_source == 2:
+                                self.warning_colour_two_pub.publish("red")
+                            else:
+                                self.warning_colour_three_pub.publish("red")
+                                
+                        time.sleep(1)
+                        for i in range(0, 10):
+                            self.publish_screenshot()
+                        time.sleep(1)
+                        while True:
+                            if self.c_mode == 'C1':
+                                if self.map_mode=='2D':
+                                    query = (
+                                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                                    f"Green dots represent possible robot navigation nodes. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED TRIANGLES). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                                else:
+                                    query = (
+                                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map. "
+                                    f"Green dots represent possible robot navigation nodes. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED MEEPLE). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                            elif self.c_mode == 'C2':
+                                if self.map_mode=='2D':
+                                    query = (
+                                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                                    f"Green dots represent possible robot navigation nodes, which are: {VALID_NODES}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED TRIANGLES). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                                else:
+                                    query = (
+                                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map. "
+                                    f"Green dots represent possible robot navigation nodes, which are: {VALID_NODES}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED MEEPLE). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+
+                            elif self.c_mode == 'C3':
+                                if self.map_mode=='2D':
+                                    query = (
+                                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                                    f"Green dots represent possible robot navigation nodes, which are: {self.available_nodes}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED TRIANGLES). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                                else:
+                                    query = (
+                                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map. "
+                                    f"Green dots represent possible robot navigation nodes,  which are: {self.available_nodes}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED MEEPLE). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+
+                            if self.map_mode =='3D':
+                                answer = self.query_llm(self.rviz_view, query)
+                            else:
+                                answer = self.query_llm(self.simple_view, query)
+                            rospy.loginfo(f"LLM Response to serious accident: {answer}")
+                            nodes = extract_robot_numbers(answer)
+                            rospy.loginfo(f'The node numbers are: {nodes}')
+                            try:
+                                rospy.loginfo(f'Kuka 1 should go to: {nodes[0]}')
+                                rospy.loginfo(f'kuka 2 should go to: {nodes[1]}')
+                                rospy.loginfo(f'Kuka 3 should go to: {nodes[2]}')
+                            except:
+                                rospy.loginfo(f'Invalid locations')
+                            #if nodes[0] is not None and nodes[1] is not None and nodes[2] is not None and nodes[0] in VALID_NODES and nodes[1] in VALID_NODES and nodes[2] in VALID_NODES:
+                            for i in range(0, 10):
+                                self.event_description_pub.publish(f"🚨 *A potential accident has been detected in the lab.* The nodes ChemistEye selected to move the robots based on the current incident are summarised as follows: [{self.llm_model}]{answer} Experiment: {self.exp_number}")
+                            for i in range(0, 10):
+                                self.message_trigger_pub.publish("True")
+                            for i in range (0,10):
+                                self.control_robot_one_pub.publish(str(nodes[0]))
+                                self.control_robot_two_pub.publish(str(nodes[1]))
+                                self.control_robot_three_pub.publish(str(nodes[2]))
+                            time.sleep(90)
+                            for i in range(0, 10):
+                                self.publish_screenshot()
+                            for i in range(0, 10):
+                                self.event_description_pub.publish(f"⚠️ *The following image displays the current state of the lab after the robots have been moved.* Experiment[{self.llm_model}]: {self.exp_number}")
+                            for i in range(0, 10):
+                                self.message_trigger_pub.publish("True")
+                            break
+                           # else: 
+                           #     rospy.loginfo("LLM failed to give a valid answer, querying again...")
+                        while not rospy.is_shutdown():
+                            pass
+                    time_stamp_limit_1 = 0
+                if time_stamp_limit_2 <= time_stamp_limit_2_:
+                    self.warning_colour_two_pub.publish("gray")
+                else:
+                    if self.camera_source == 2:
+                        rospy.loginfo(f"🚨 Accident detected")
+                        for i in range(0,10):
+                            if self.camera_source == 1: 
+                                self.warning_colour_one_pub.publish("red")
+                            elif self.camera_source == 2:
+                                self.warning_colour_two_pub.publish("red")
+                            else:
+                                self.warning_colour_three_pub.publish("red")
+                                
+                        time.sleep(1)
+                        for i in range(0, 10):
+                            self.publish_screenshot()
+                        time.sleep(1)
+                        while True:
+                            if self.c_mode == 'C1':
+                                if self.map_mode=='2D':
+                                    query = (
+                                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                                    f"Green dots represent possible robot navigation nodes. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED TRIANGLES). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                                else:
+                                    query = (
+                                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map. "
+                                    f"Green dots represent possible robot navigation nodes. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED MEEPLE). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                            elif self.c_mode == 'C2':
+                                if self.map_mode=='2D':
+                                    query = (
+                                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                                    f"Green dots represent possible robot navigation nodes, which are: {VALID_NODES}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED TRIANGLES). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                                else:
+                                    query = (
+                                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map. "
+                                    f"Green dots represent possible robot navigation nodes, which are: {VALID_NODES}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED MEEPLE). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+
+                            elif self.c_mode == 'C3':
+                                if self.map_mode=='2D':
+                                    query = (
+                                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                                    f"Green dots represent possible robot navigation nodes, which are: {self.available_nodes}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED TRIANGLES). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                                else:
+                                    query = (
+                                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map. "
+                                    f"Green dots represent possible robot navigation nodes,  which are: {self.available_nodes}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED MEEPLE). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                            if self.map_mode =='3D':
+                                answer = self.query_llm(self.rviz_view, query)
+                            else:
+                                answer = self.query_llm(self.simple_view, query)
+                            rospy.loginfo(f"LLM Response to serious accident: {answer}")
+                            nodes = extract_robot_numbers(answer)
+                            rospy.loginfo(f'The node numbers are: {nodes}')
+                            try:
+                                rospy.loginfo(f'Kuka 1 should go to: {nodes[0]}')
+                                rospy.loginfo(f'kuka 2 should go to: {nodes[1]}')
+                                rospy.loginfo(f'Kuka 3 should go to: {nodes[2]}')
+                            except:
+                                rospy.loginfo(f'Invalid locations')
+                            #if nodes[0] is not None and nodes[1] is not None and nodes[2] is not None and nodes[0] in VALID_NODES and nodes[1] in VALID_NODES and nodes[2] in VALID_NODES:
+                            for i in range(0, 10):
+                                self.event_description_pub.publish(f"🚨 *A potential accident has been detected in the lab.* The nodes ChemistEye selected to move the robots based on the current incident are summarised as follows: [{self.llm_model}]{answer} Experiment: {self.exp_number}")
+                            for i in range(0, 10):
+                                self.message_trigger_pub.publish("True")
+                            for i in range (0,10):
+                                self.control_robot_one_pub.publish(str(nodes[0]))
+                                self.control_robot_two_pub.publish(str(nodes[1]))
+                                self.control_robot_three_pub.publish(str(nodes[2]))
+                            time.sleep(90)
+                            for i in range(0, 10):
+                                self.publish_screenshot()
+                            for i in range(0, 10):
+                                self.event_description_pub.publish(f"⚠️ *The following image displays the current state of the lab after the robots have been moved.* Experiment[{self.llm_model}]: {self.exp_number}")
+                            for i in range(0, 10):
+                                self.message_trigger_pub.publish("True")
+                            break
+                            #else: 
+                            #    rospy.loginfo("LLM failed to give a valid answer, querying again...")
+                        while not rospy.is_shutdown():
+                            pass
+                    time_stamp_limit_2 = 0
+                if time_stamp_limit_3 <= time_stamp_limit_3_:
+                    self.warning_colour_three_pub.publish("gray")
+                else:
+                    if self.camera_source == 3:
+                        rospy.loginfo(f"🚨 Accident detected")
+                        for i in range(0,10):
+                            if self.camera_source == 1: 
+                                self.warning_colour_one_pub.publish("red")
+                            elif self.camera_source == 2:
+                                self.warning_colour_two_pub.publish("red")
+                            else:
+                                self.warning_colour_three_pub.publish("red")
+                                
+                        time.sleep(1)
+                        for i in range(0, 10):
+                            self.publish_screenshot()
+                        time.sleep(1)
+                        while True:
+                            if self.c_mode == 'C1':
+                                if self.map_mode=='2D':
+                                    query = (
+                                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                                    f"Green dots represent possible robot navigation nodes. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED TRIANGLES). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                                else:
+                                    query = (
+                                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map. "
+                                    f"Green dots represent possible robot navigation nodes. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED MEEPLE). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                            elif self.c_mode == 'C2':
+                                if self.map_mode=='2D':
+                                    query = (
+                                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                                    f"Green dots represent possible robot navigation nodes, which are: {VALID_NODES}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED TRIANGLES). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                                else:
+                                    query = (
+                                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map. "
+                                    f"Green dots represent possible robot navigation nodes, which are: {VALID_NODES}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED MEEPLE). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+
+                            elif self.c_mode == 'C3':
+                                if self.map_mode=='2D':
+                                    query = (
+                                    f"The image is an RViz map view showing people as triangles: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (R1, R2, R3) on the map (orange squares). "
+                                    f"Green dots represent possible robot navigation nodes, which are: {self.available_nodes}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED TRIANGLES). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                                else:
+                                    query = (
+                                    f"The image is an RViz map view showing people as meeples: gray means normal, yellow means missing PPE, and red indicates an accident. "
+                                    f"There are three mobile KUKA robots (Robot1, Robot2, Robot3) on the map. "
+                                    f"Green dots represent possible robot navigation nodes,  which are: {self.available_nodes}. "
+                                    f"Blue and red spheres mark areas of detected temperature; a potential accident has been detected (RED MEEPLE). "
+                                    f"Based on the image, suggest safe and distant navigation nodes for each robot to avoid the accidented person. "
+                                    f"The nodes must be selected from the list provided above, and each robot should move to a unique node the others. "
+                                    f"Respond ONLY in this format: ROBOT1: [X], ROBOT2: [Y], ROBOT3: [Z], where X, Y, and Z are node numbers. "
+                                    f"The node number should be 0 when there is not necessity to move a robot.")
+                            if self.map_mode =='3D':
+                                answer = self.query_llm(self.rviz_view, query)
+                            else:
+                                answer = self.query_llm(self.simple_view, query)
+                            rospy.loginfo(f"LLM Response to serious accident: {answer}")
+                            nodes = extract_robot_numbers(answer)
+                            rospy.loginfo(f'The node numbers are: {nodes}')
+                            try:
+                                rospy.loginfo(f'Kuka 1 should go to: {nodes[0]}')
+                                rospy.loginfo(f'kuka 2 should go to: {nodes[1]}')
+                                rospy.loginfo(f'Kuka 3 should go to: {nodes[2]}')
+                                
+                            except:
+                                rospy.loginfo(f'Invalid locations')
+                            #if nodes[0] is not None and nodes[1] is not None and nodes[2] is not None and nodes[0] in VALID_NODES and nodes[1] in VALID_NODES and nodes[2] in VALID_NODES:
+                            for i in range(0, 10):
+                                self.event_description_pub.publish(f"🚨 *A potential accident has been detected in the lab.* The nodes ChemistEye selected to move the robots based on the current incident are summarised as follows: [{self.llm_model}]{answer} Experiment: {self.exp_number}")
+                            for i in range(0, 10):
+                                self.message_trigger_pub.publish("True")
+                            for i in range (0,10):
+                                self.control_robot_one_pub.publish(str(nodes[0]))
+                                self.control_robot_two_pub.publish(str(nodes[1]))
+                                self.control_robot_three_pub.publish(str(nodes[2]))
+                                #TODO Fix undesired collisions between robots following cross paths (add a planner to control what robot should move first)
+                            time.sleep(90)
+                            for i in range(0, 10):
+                                self.publish_screenshot()
+                            for i in range(0, 10):
+                                self.event_description_pub.publish(f"⚠️ *The following image displays the current state of the lab after the robots have been moved.* Experiment[{self.llm_model}]: {self.exp_number}")
+                            for i in range(0, 10):
+                                self.message_trigger_pub.publish("True")
+                            break
+                            #else: 
+                            #    rospy.loginfo("LLM failed to give a valid answer, querying again...")
+                        while not rospy.is_shutdown():
+                            pass
+                    time_stamp_limit_3 = 0
+                time_stamp_limit_1 += 1
+                time_stamp_limit_2 += 1
+                time_stamp_limit_3 += 1
+            if self.experiment == 'ppe':
+                # ---- CAMERA 1 ----
+                if self.camera_source == 1:
+                    ppe_missing = True   # The actual llm gives the logic here (this is for just for simulation and benchmarking the decision making skills of chemist eye)
+
+                    if ppe_missing:
+                        self.start_ppe_timer(1)
+
+                        if self.ppe_timer_expired(1, self.ppe_delay_minutes):
+                            rospy.loginfo(
+                                f"⚠️ PPE violation persisted for {self.ppe_delay_minutes} minutes at ChemistEye 1"
+                            )
+
+                            for _ in range(10):
+                                self.warning_colour_one_pub.publish("yellow")
+
+                            for _ in range(10):
+                                self.publish_screenshot()
+
+                            for _ in range(10):
+                                self.event_description_pub.publish(
+                                    f"⚠️ A person has been detected not wearing PPE at ChemistEye 1 "
+                                    f"for more than *{self.ppe_delay_minutes} minutes*. "
+                                    f"ChemistEye is 🔊 issuing warnings and freezing robots. "
+                                    f"Experiment[{self.llm_model}]: {self.exp_number}"
+                                )
+
+                            for _ in range(10):
+                                self.message_trigger_pub.publish("True")
+
+                            self.reset_ppe_timer(1)
+                    else:
+                        self.reset_ppe_timer(1)
+                        self.warning_colour_one_pub.publish("gray")
+
+
+                # ---- CAMERA 2 ----
+                if self.camera_source == 2:
+                    ppe_missing = True   # The actual llm gives the logic here (this is for simulation)
+
+                    if ppe_missing:
+                        self.start_ppe_timer(2)
+
+                        if self.ppe_timer_expired(2, self.ppe_delay_minutes):
+                            rospy.loginfo(
+                                f"⚠️ PPE violation persisted for {self.ppe_delay_minutes} minutes at ChemistEye 2"
+                            )
+
+                            for _ in range(10):
+                                self.warning_colour_two_pub.publish("yellow")
+
+                            for _ in range(10):
+                                self.publish_screenshot()
+
+                            for _ in range(10):
+                                self.event_description_pub.publish(
+                                    f"⚠️ A person has been detected not wearing PPE at ChemistEye 2 "
+                                    f"for more than *{self.ppe_delay_minutes} minutes*. "
+                                    f"ChemistEye is 🔊 issuing warnings and freezing robots. "
+                                    f"Experiment[{self.llm_model}]: {self.exp_number}"
+                                )
+
+                            for _ in range(10):
+                                self.message_trigger_pub.publish("True")
+
+                            self.reset_ppe_timer(2)
+                    else:
+                        self.reset_ppe_timer(2)
+                        self.warning_colour_two_pub.publish("gray")
+
+
+                # ---- CAMERA 3 ----
+                if self.camera_source == 3:
+                    ppe_missing = True   # The actual llm.py node gives the logic here (this is for simulation)
+                    if ppe_missing:
+                        self.start_ppe_timer(3)
+
+                        if self.ppe_timer_expired(3, self.ppe_delay_minutes):
+                            rospy.loginfo(
+                                f"⚠️ PPE violation persisted for {self.ppe_delay_minutes} minutes at ChemistEye 3"
+                            )
+
+                            for _ in range(10):
+                                self.warning_colour_three_pub.publish("yellow")
+
+                            for _ in range(10):
+                                self.publish_screenshot()
+
+                            for _ in range(10):
+                                self.event_description_pub.publish(
+                                    f"⚠️ A person has been detected not wearing PPE at ChemistEye 3 "
+                                    f"for more than *{self.ppe_delay_minutes} minutes*. "
+                                    f"ChemistEye is 🔊 issuing warnings and freezing robots. "
+                                    f"Experiment[{self.llm_model}]: {self.exp_number}"
+                                )
+
+                            for _ in range(10):
+                                self.message_trigger_pub.publish("True")
+
+                            self.reset_ppe_timer(3)
+                    else:
+                        self.reset_ppe_timer(3)
+                        self.warning_colour_three_pub.publish("gray")
+
+            if self.experiment == 'fire':
+                self.publish_screenshot()
+                time_stamp_limit_1 += 1
+                time_stamp_limit_2 += 1
+                time_stamp_limit_3 += 1
+            rate.sleep()
+
+    def query_llm(self, image_data, query):
+        try:
+            if image_data is not None:
+                start_time = time.perf_counter()
+
+                _, buffer = cv2.imencode('.jpg', image_data)
+                image_base64 = base64.b64encode(buffer).decode('utf-8')
+
+                response = self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": query},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{image_base64}"
+                                    },
+                                },
+                            ],
+                        }
+                    ],
+                    max_tokens=100,
+                    temperature=0.2
+                )
+
+                end_time = time.perf_counter()
+                latency = end_time - start_time
+
+                rospy.loginfo(f"⏱ LLM decision time: {latency:.3f} seconds")
+
+                return response.choices[0].message.content.strip().upper()
+
+        except Exception as e:
+            rospy.logerr(f"Error querying LLM: {e}")
+            return None
+    
+    def start_ppe_timer(self, camera_id: int):
+        """Start PPE violation timer if not already running."""
+        if self.ppe_violation_start[camera_id] is None:
+            self.ppe_violation_start[camera_id] = rospy.Time.now()
+            rospy.loginfo(f"⏱ PPE timer started for camera {camera_id}")
+
+    def reset_ppe_timer(self, camera_id: int):
+        """Reset PPE violation timer (PPE is OK again)."""
+        if self.ppe_violation_start[camera_id] is not None:
+            rospy.loginfo(f"✅ PPE resolved for camera {camera_id}, timer reset")
+        self.ppe_violation_start[camera_id] = None
+
+    def ppe_timer_expired(self, camera_id: int, delay_minutes: float) -> bool:
+        """Check if PPE violation has lasted longer than delay_minutes."""
+        start_time = self.ppe_violation_start[camera_id]
+        if start_time is None:
+            return False
+
+        elapsed = (rospy.Time.now() - start_time).to_sec()
+        return elapsed >= delay_minutes * 60.0
+
+    def available_nodes_callback(self, msg):
+        try:
+            self.available_nodes = msg.data
+            #rospy.loginfo(f"Updated available nodes: {self.available_nodes}")
+        except Exception as e:
+            rospy.logwarn(f"Failed to parse available nodes: {e}")
+    def simple_view_callback(self, msg):
+        """ Converts ROS Image message to OpenCV format and stores it. """
+        try:
+            self.simple_view = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")  # Convert to OpenCV image
+            #rospy.loginfo("Received an image and converted it successfully.")
+        except Exception as e:
+            rospy.logerr(f"Error converting ROS Image to OpenCV: {e}")
+    
+    def crop_image(self, image):
+        """Crops the image using defined x, y, width, and height."""
+        h, w, _ = image.shape
+
+        # Ensure crop dimensions are within bounds
+        x1 = max(0, min(self.x, w))
+        y1 = max(0, min(self.y, h))
+        x2 = max(0, min(self.x + self.width, w))
+        y2 = max(0, min(self.y + self.height, h))
+
+        return image[y1:y2, x1:x2]
+
+    def publish_screenshot(self):
+        # Capture the full screen
+        screenshot = pyautogui.screenshot()
+        frame = np.array(screenshot)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        # Crop the image
+        cropped_frame = self.crop_image(frame)
+        self.rviz_view = cropped_frame.copy()
+
+        # Publish as a ROS Image message
+        msg = self.bridge.cv2_to_imgmsg(cropped_frame, encoding="bgr8")
+        self.image_pub.publish(msg)
+
+
+
+def call_speech_service(service_name):
+    rospy.wait_for_service(service_name)
+    try:
+        run_bash_script = rospy.ServiceProxy(service_name, RunBashScript)
+        response = run_bash_script()
+        if response.success:
+            rospy.loginfo(f"Speech service {service_name} executed successfully.")
+        else:
+            rospy.logwarn(f"Failed to execute {service_name}: {response.message}")
+    except rospy.ServiceException as e:
+        rospy.logerr(f"Service call failed: {e}")
+
+if __name__ == "__main__":
+    LlmDecisionMaker()
